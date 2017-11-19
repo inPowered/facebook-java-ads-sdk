@@ -87,16 +87,12 @@ public class AdSet extends APINode {
   private String mEndTime = null;
   @SerializedName("frequency_control_specs")
   private List<Object> mFrequencyControlSpecs = null;
-  @SerializedName("full_funnel_exploration_mode")
-  private String mFullFunnelExplorationMode = null;
   @SerializedName("id")
   private String mId = null;
   @SerializedName("instagram_actor_id")
   private String mInstagramActorId = null;
   @SerializedName("is_autobid")
   private Boolean mIsAutobid = null;
-  @SerializedName("is_average_price_pacing")
-  private Boolean mIsAveragePricePacing = null;
   @SerializedName("lifetime_budget")
   private String mLifetimeBudget = null;
   @SerializedName("lifetime_imps")
@@ -552,15 +548,6 @@ public class AdSet extends APINode {
     return this;
   }
 
-  public String getFieldFullFunnelExplorationMode() {
-    return mFullFunnelExplorationMode;
-  }
-
-  public AdSet setFieldFullFunnelExplorationMode(String value) {
-    this.mFullFunnelExplorationMode = value;
-    return this;
-  }
-
   public String getFieldId() {
     return mId;
   }
@@ -585,15 +572,6 @@ public class AdSet extends APINode {
 
   public AdSet setFieldIsAutobid(Boolean value) {
     this.mIsAutobid = value;
-    return this;
-  }
-
-  public Boolean getFieldIsAveragePricePacing() {
-    return mIsAveragePricePacing;
-  }
-
-  public AdSet setFieldIsAveragePricePacing(Boolean value) {
-    this.mIsAveragePricePacing = value;
     return this;
   }
 
@@ -4528,11 +4506,9 @@ public class AdSet extends APINode {
     this.mEffectiveStatus = instance.mEffectiveStatus;
     this.mEndTime = instance.mEndTime;
     this.mFrequencyControlSpecs = instance.mFrequencyControlSpecs;
-    this.mFullFunnelExplorationMode = instance.mFullFunnelExplorationMode;
     this.mId = instance.mId;
     this.mInstagramActorId = instance.mInstagramActorId;
     this.mIsAutobid = instance.mIsAutobid;
-    this.mIsAveragePricePacing = instance.mIsAveragePricePacing;
     this.mLifetimeBudget = instance.mLifetimeBudget;
     this.mLifetimeImps = instance.mLifetimeImps;
     this.mName = instance.mName;
