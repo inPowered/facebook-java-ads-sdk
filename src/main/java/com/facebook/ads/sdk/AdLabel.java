@@ -972,11 +972,9 @@ public class AdLabel extends APINode {
       "effective_status",
       "end_time",
       "frequency_control_specs",
-      "full_funnel_exploration_mode",
       "id",
       "instagram_actor_id",
       "is_autobid",
-      "is_average_price_pacing",
       "lifetime_budget",
       "lifetime_imps",
       "name",
@@ -1193,13 +1191,6 @@ public class AdLabel extends APINode {
       this.requestField("frequency_control_specs", value);
       return this;
     }
-    public APIRequestGetAdSets requestFullFunnelExplorationModeField () {
-      return this.requestFullFunnelExplorationModeField(true);
-    }
-    public APIRequestGetAdSets requestFullFunnelExplorationModeField (boolean value) {
-      this.requestField("full_funnel_exploration_mode", value);
-      return this;
-    }
     public APIRequestGetAdSets requestIdField () {
       return this.requestIdField(true);
     }
@@ -1219,13 +1210,6 @@ public class AdLabel extends APINode {
     }
     public APIRequestGetAdSets requestIsAutobidField (boolean value) {
       this.requestField("is_autobid", value);
-      return this;
-    }
-    public APIRequestGetAdSets requestIsAveragePricePacingField () {
-      return this.requestIsAveragePricePacingField(true);
-    }
-    public APIRequestGetAdSets requestIsAveragePricePacingField (boolean value) {
-      this.requestField("is_average_price_pacing", value);
       return this;
     }
     public APIRequestGetAdSets requestLifetimeBudgetField () {

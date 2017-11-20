@@ -4618,11 +4618,9 @@ public class AdAccount extends APINode {
       "effective_status",
       "end_time",
       "frequency_control_specs",
-      "full_funnel_exploration_mode",
       "id",
       "instagram_actor_id",
       "is_autobid",
-      "is_average_price_pacing",
       "lifetime_budget",
       "lifetime_imps",
       "name",
@@ -4889,13 +4887,6 @@ public class AdAccount extends APINode {
       this.requestField("frequency_control_specs", value);
       return this;
     }
-    public APIRequestGetAdSets requestFullFunnelExplorationModeField () {
-      return this.requestFullFunnelExplorationModeField(true);
-    }
-    public APIRequestGetAdSets requestFullFunnelExplorationModeField (boolean value) {
-      this.requestField("full_funnel_exploration_mode", value);
-      return this;
-    }
     public APIRequestGetAdSets requestIdField () {
       return this.requestIdField(true);
     }
@@ -4915,13 +4906,6 @@ public class AdAccount extends APINode {
     }
     public APIRequestGetAdSets requestIsAutobidField (boolean value) {
       this.requestField("is_autobid", value);
-      return this;
-    }
-    public APIRequestGetAdSets requestIsAveragePricePacingField () {
-      return this.requestIsAveragePricePacingField(true);
-    }
-    public APIRequestGetAdSets requestIsAveragePricePacingField (boolean value) {
-      this.requestField("is_average_price_pacing", value);
       return this;
     }
     public APIRequestGetAdSets requestLifetimeBudgetField () {
@@ -5082,7 +5066,6 @@ public class AdAccount extends APINode {
       "execution_options",
       "frequency_control_specs",
       "is_autobid",
-      "is_average_price_pacing",
       "lifetime_budget",
       "lifetime_imps",
       "name",
@@ -5260,16 +5243,6 @@ public class AdAccount extends APINode {
       this.setParam("is_autobid", isAutobid);
       return this;
     }
-
-    public APIRequestCreateAdSet setIsAveragePricePacing (Boolean isAveragePricePacing) {
-      this.setParam("is_average_price_pacing", isAveragePricePacing);
-      return this;
-    }
-    public APIRequestCreateAdSet setIsAveragePricePacing (String isAveragePricePacing) {
-      this.setParam("is_average_price_pacing", isAveragePricePacing);
-      return this;
-    }
-
     public APIRequestCreateAdSet setLifetimeBudget (Long lifetimeBudget) {
       this.setParam("lifetime_budget", lifetimeBudget);
       return this;
@@ -5444,11 +5417,9 @@ public class AdAccount extends APINode {
       "effective_status",
       "end_time",
       "frequency_control_specs",
-      "full_funnel_exploration_mode",
       "id",
       "instagram_actor_id",
       "is_autobid",
-      "is_average_price_pacing",
       "lifetime_budget",
       "lifetime_imps",
       "name",
@@ -5683,13 +5654,6 @@ public class AdAccount extends APINode {
       this.requestField("frequency_control_specs", value);
       return this;
     }
-    public APIRequestGetAdSetsByLabels requestFullFunnelExplorationModeField () {
-      return this.requestFullFunnelExplorationModeField(true);
-    }
-    public APIRequestGetAdSetsByLabels requestFullFunnelExplorationModeField (boolean value) {
-      this.requestField("full_funnel_exploration_mode", value);
-      return this;
-    }
     public APIRequestGetAdSetsByLabels requestIdField () {
       return this.requestIdField(true);
     }
@@ -5709,13 +5673,6 @@ public class AdAccount extends APINode {
     }
     public APIRequestGetAdSetsByLabels requestIsAutobidField (boolean value) {
       this.requestField("is_autobid", value);
-      return this;
-    }
-    public APIRequestGetAdSetsByLabels requestIsAveragePricePacingField () {
-      return this.requestIsAveragePricePacingField(true);
-    }
-    public APIRequestGetAdSetsByLabels requestIsAveragePricePacingField (boolean value) {
-      this.requestField("is_average_price_pacing", value);
       return this;
     }
     public APIRequestGetAdSetsByLabels requestLifetimeBudgetField () {
