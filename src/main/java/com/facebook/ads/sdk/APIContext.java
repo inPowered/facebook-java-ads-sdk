@@ -23,11 +23,6 @@
 package com.facebook.ads.sdk;
 
 import java.io.PrintStream;
-import java.util.Arrays;
-import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
 import javax.crypto.Mac;
 import javax.crypto.spec.SecretKeySpec;
 
@@ -43,6 +38,7 @@ public class APIContext {
   private String version;
   protected boolean isDebug = false;
   protected PrintStream logger = System.out;
+  private String adsInsightsThrottle;
 
   public APIContext(String endpointBase, String videoEndpointBase, String version, String accessToken, String appSecret) {
     this.version = version;
@@ -130,5 +126,13 @@ public class APIContext {
         sb.append(String.format("%1$02x", b));
     }
     return sb.toString();
+  }
+
+  public String getAdsInsightsThrottle() {
+    return adsInsightsThrottle;
+  }
+
+  public void setAdsInsightsThrottle(String adsInsightsThrottle) {
+    this.adsInsightsThrottle = adsInsightsThrottle;
   }
 }

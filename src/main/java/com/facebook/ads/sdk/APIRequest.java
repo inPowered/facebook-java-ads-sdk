@@ -22,27 +22,24 @@
  */
 package com.facebook.ads.sdk;
 
+import com.google.gson.Gson;
+import com.google.gson.GsonBuilder;
+import java.io.BufferedReader;
+import java.io.DataOutputStream;
+import java.io.File;
+import java.io.FileInputStream;
+import java.io.IOException;
+import java.io.InputStreamReader;
+import java.lang.reflect.Modifier;
+import java.net.URL;
+import java.net.URLEncoder;
 import java.nio.file.Files;
-import java.util.Arrays;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import java.net.URL;
-import java.net.URLEncoder;
-import javax.net.ssl.HttpsURLConnection;
-import java.io.BufferedReader;
-import java.lang.reflect.Modifier;
-import java.lang.StringBuilder;
-import java.io.DataOutputStream;
-import java.io.File;
-import java.io.FileInputStream;
-import java.io.InputStreamReader;
-import java.io.IOException;
 import java.util.Random;
-
-import com.google.gson.Gson;
-import com.google.gson.GsonBuilder;
+import javax.net.ssl.HttpsURLConnection;
 
 public class APIRequest<T extends APINode> {
 
@@ -200,9 +197,13 @@ public class APIRequest<T extends APINode> {
     return allParams;
   }
 
-  private static String readResponse(HttpsURLConnection con) throws APIException, IOException {
+  private static String readResponse(HttpsURLConnection con, APIContext ctx) throws APIException, IOException {
     try {
       int responseCode = con.getResponseCode();
+      // contains info about the platform utilization
+      // see https://developers.facebook.com/docs/marketing-api/insights/best-practices#insightscallload
+      ctx.setAdsInsightsThrottle(con.getHeaderField("X-FB-Ads-Insights-Throttle"));
+
 
       BufferedReader in = new BufferedReader(new InputStreamReader(con.getInputStream()));
       String inputLine;
@@ -353,7 +354,7 @@ public class APIRequest<T extends APINode> {
       con.setRequestProperty("User-Agent", USER_AGENT);
       con.setRequestProperty("Content-Type","application/x-www-form-urlencoded");
 
-      return readResponse(con);
+      return readResponse(con, context);
     }
 
     public String sendPost(String apiUrl, Map<String, Object> allParams, APIContext context) throws APIException, IOException {
@@ -406,7 +407,7 @@ public class APIRequest<T extends APINode> {
       wr.flush();
       wr.close();
 
-      return readResponse(con);
+      return readResponse(con, context);
     }
 
     public String sendDelete(String apiUrl, Map<String, Object> allParams, APIContext context) throws APIException, IOException {
@@ -423,7 +424,7 @@ public class APIRequest<T extends APINode> {
       con.setRequestMethod("DELETE");
       con.setRequestProperty("User-Agent", USER_AGENT);
 
-      return readResponse(con);
+      return readResponse(con, context);
     }
 
     private static String getContentTypeForFile(File file) {
