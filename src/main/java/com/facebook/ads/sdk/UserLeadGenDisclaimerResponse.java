@@ -1,24 +1,9 @@
-/**
- * Copyright (c) 2015-present, Facebook, Inc. All rights reserved.
+/*
+ * Copyright (c) Meta Platforms, Inc. and affiliates.
+ * All rights reserved.
  *
- * You are hereby granted a non-exclusive, worldwide, royalty-free license to
- * use, copy, modify, and distribute this software in source code or binary
- * form for use in connection with the web services and APIs provided by
- * Facebook.
- *
- * As with any software that integrates with the Facebook platform, your use
- * of this software is subject to the Facebook Developer Principles and
- * Policies [http://developers.facebook.com/policy/]. This copyright notice
- * shall be included in all copies or substantial portions of the software.
- *
- * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
- * IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
- * FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL
- * THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
- * LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING
- * FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
- * DEALINGS IN THE SOFTWARE.
- *
+ * This source code is licensed under the license found in the
+ * LICENSE file in the root directory of this source tree.
  */
 
 package com.facebook.ads.sdk;
@@ -31,6 +16,11 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
+import com.google.common.base.Function;
+import com.google.common.util.concurrent.Futures;
+import com.google.common.util.concurrent.ListenableFuture;
+import com.google.common.util.concurrent.MoreExecutors;
+import com.google.common.util.concurrent.SettableFuture;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonArray;
 import com.google.gson.annotations.SerializedName;
@@ -63,7 +53,7 @@ public class UserLeadGenDisclaimerResponse extends APINode {
   public String getId() {
     return null;
   }
-  public static UserLeadGenDisclaimerResponse loadJSON(String json, APIContext context) {
+  public static UserLeadGenDisclaimerResponse loadJSON(String json, APIContext context, String header) {
     UserLeadGenDisclaimerResponse userLeadGenDisclaimerResponse = getGson().fromJson(json, UserLeadGenDisclaimerResponse.class);
     if (context.isDebug()) {
       JsonParser parser = new JsonParser();
@@ -76,15 +66,16 @@ public class UserLeadGenDisclaimerResponse extends APINode {
         context.log("[Warning] When parsing response, object is not consistent with JSON:");
         context.log("[JSON]" + o1);
         context.log("[Object]" + o2);
-      };
+      }
     }
     userLeadGenDisclaimerResponse.context = context;
     userLeadGenDisclaimerResponse.rawValue = json;
+    userLeadGenDisclaimerResponse.header = header;
     return userLeadGenDisclaimerResponse;
   }
 
-  public static APINodeList<UserLeadGenDisclaimerResponse> parseResponse(String json, APIContext context, APIRequest request) throws MalformedResponseException {
-    APINodeList<UserLeadGenDisclaimerResponse> userLeadGenDisclaimerResponses = new APINodeList<UserLeadGenDisclaimerResponse>(request, json);
+  public static APINodeList<UserLeadGenDisclaimerResponse> parseResponse(String json, APIContext context, APIRequest request, String header) throws MalformedResponseException {
+    APINodeList<UserLeadGenDisclaimerResponse> userLeadGenDisclaimerResponses = new APINodeList<UserLeadGenDisclaimerResponse>(request, json, header);
     JsonArray arr;
     JsonObject obj;
     JsonParser parser = new JsonParser();
@@ -95,23 +86,32 @@ public class UserLeadGenDisclaimerResponse extends APINode {
         // First, check if it's a pure JSON Array
         arr = result.getAsJsonArray();
         for (int i = 0; i < arr.size(); i++) {
-          userLeadGenDisclaimerResponses.add(loadJSON(arr.get(i).getAsJsonObject().toString(), context));
+          userLeadGenDisclaimerResponses.add(loadJSON(arr.get(i).getAsJsonObject().toString(), context, header));
         };
         return userLeadGenDisclaimerResponses;
       } else if (result.isJsonObject()) {
         obj = result.getAsJsonObject();
         if (obj.has("data")) {
           if (obj.has("paging")) {
-            JsonObject paging = obj.get("paging").getAsJsonObject().get("cursors").getAsJsonObject();
-            String before = paging.has("before") ? paging.get("before").getAsString() : null;
-            String after = paging.has("after") ? paging.get("after").getAsString() : null;
-            userLeadGenDisclaimerResponses.setPaging(before, after);
+            JsonObject paging = obj.get("paging").getAsJsonObject();
+            if (paging.has("cursors")) {
+                JsonObject cursors = paging.get("cursors").getAsJsonObject();
+                String before = cursors.has("before") ? cursors.get("before").getAsString() : null;
+                String after = cursors.has("after") ? cursors.get("after").getAsString() : null;
+                userLeadGenDisclaimerResponses.setCursors(before, after);
+            }
+            String previous = paging.has("previous") ? paging.get("previous").getAsString() : null;
+            String next = paging.has("next") ? paging.get("next").getAsString() : null;
+            userLeadGenDisclaimerResponses.setPaging(previous, next);
+            if (context.hasAppSecret()) {
+              userLeadGenDisclaimerResponses.setAppSecret(context.getAppSecretProof());
+            }
           }
           if (obj.get("data").isJsonArray()) {
             // Second, check if it's a JSON array with "data"
             arr = obj.get("data").getAsJsonArray();
             for (int i = 0; i < arr.size(); i++) {
-              userLeadGenDisclaimerResponses.add(loadJSON(arr.get(i).getAsJsonObject().toString(), context));
+              userLeadGenDisclaimerResponses.add(loadJSON(arr.get(i).getAsJsonObject().toString(), context, header));
             };
           } else if (obj.get("data").isJsonObject()) {
             // Third, check if it's a JSON object with "data"
@@ -122,13 +122,13 @@ public class UserLeadGenDisclaimerResponse extends APINode {
                 isRedownload = true;
                 obj = obj.getAsJsonObject(s);
                 for (Map.Entry<String, JsonElement> entry : obj.entrySet()) {
-                  userLeadGenDisclaimerResponses.add(loadJSON(entry.getValue().toString(), context));
+                  userLeadGenDisclaimerResponses.add(loadJSON(entry.getValue().toString(), context, header));
                 }
                 break;
               }
             }
             if (!isRedownload) {
-              userLeadGenDisclaimerResponses.add(loadJSON(obj.toString(), context));
+              userLeadGenDisclaimerResponses.add(loadJSON(obj.toString(), context, header));
             }
           }
           return userLeadGenDisclaimerResponses;
@@ -136,7 +136,7 @@ public class UserLeadGenDisclaimerResponse extends APINode {
           // Fourth, check if it's a map of image objects
           obj = obj.get("images").getAsJsonObject();
           for (Map.Entry<String, JsonElement> entry : obj.entrySet()) {
-              userLeadGenDisclaimerResponses.add(loadJSON(entry.getValue().toString(), context));
+              userLeadGenDisclaimerResponses.add(loadJSON(entry.getValue().toString(), context, header));
           }
           return userLeadGenDisclaimerResponses;
         } else {
@@ -155,7 +155,7 @@ public class UserLeadGenDisclaimerResponse extends APINode {
               value.getAsJsonObject().get("id") != null &&
               value.getAsJsonObject().get("id").getAsString().equals(key)
             ) {
-              userLeadGenDisclaimerResponses.add(loadJSON(value.toString(), context));
+              userLeadGenDisclaimerResponses.add(loadJSON(value.toString(), context, header));
             } else {
               isIdIndexedArray = false;
               break;
@@ -167,7 +167,7 @@ public class UserLeadGenDisclaimerResponse extends APINode {
 
           // Sixth, check if it's pure JsonObject
           userLeadGenDisclaimerResponses.clear();
-          userLeadGenDisclaimerResponses.add(loadJSON(json, context));
+          userLeadGenDisclaimerResponses.add(loadJSON(json, context, header));
           return userLeadGenDisclaimerResponses;
         }
       }
@@ -240,8 +240,8 @@ public class UserLeadGenDisclaimerResponse extends APINode {
 
   public static APIRequest.ResponseParser<UserLeadGenDisclaimerResponse> getParser() {
     return new APIRequest.ResponseParser<UserLeadGenDisclaimerResponse>() {
-      public APINodeList<UserLeadGenDisclaimerResponse> parseResponse(String response, APIContext context, APIRequest<UserLeadGenDisclaimerResponse> request) throws MalformedResponseException {
-        return UserLeadGenDisclaimerResponse.parseResponse(response, context, request);
+      public APINodeList<UserLeadGenDisclaimerResponse> parseResponse(String response, APIContext context, APIRequest<UserLeadGenDisclaimerResponse> request, String header) throws MalformedResponseException {
+        return UserLeadGenDisclaimerResponse.parseResponse(response, context, request, header);
       }
     };
   }

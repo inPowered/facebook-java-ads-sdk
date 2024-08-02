@@ -1,24 +1,9 @@
-/**
- * Copyright (c) 2015-present, Facebook, Inc. All rights reserved.
+/*
+ * Copyright (c) Meta Platforms, Inc. and affiliates.
+ * All rights reserved.
  *
- * You are hereby granted a non-exclusive, worldwide, royalty-free license to
- * use, copy, modify, and distribute this software in source code or binary
- * form for use in connection with the web services and APIs provided by
- * Facebook.
- *
- * As with any software that integrates with the Facebook platform, your use
- * of this software is subject to the Facebook Developer Principles and
- * Policies [http://developers.facebook.com/policy/]. This copyright notice
- * shall be included in all copies or substantial portions of the software.
- *
- * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
- * IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
- * FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL
- * THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
- * LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING
- * FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
- * DEALINGS IN THE SOFTWARE.
- *
+ * This source code is licensed under the license found in the
+ * LICENSE file in the root directory of this source tree.
  */
 
 package com.facebook.ads.sdk;
@@ -31,6 +16,11 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
+import com.google.common.base.Function;
+import com.google.common.util.concurrent.Futures;
+import com.google.common.util.concurrent.ListenableFuture;
+import com.google.common.util.concurrent.MoreExecutors;
+import com.google.common.util.concurrent.SettableFuture;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonArray;
 import com.google.gson.annotations.SerializedName;
@@ -62,7 +52,7 @@ public class AdPlacePageSet extends APINode {
   @SerializedName("pages_count")
   private Long mPagesCount = null;
   @SerializedName("parent_page")
-  private Object mParentPage = null;
+  private Page mParentPage = null;
   protected static Gson gson = null;
 
   AdPlacePageSet() {
@@ -74,6 +64,7 @@ public class AdPlacePageSet extends APINode {
 
   public AdPlacePageSet(String id, APIContext context) {
     this.mId = id;
+
     this.context = context;
   }
 
@@ -87,12 +78,22 @@ public class AdPlacePageSet extends APINode {
     return fetchById(id.toString(), context);
   }
 
+  public static ListenableFuture<AdPlacePageSet> fetchByIdAsync(Long id, APIContext context) throws APIException {
+    return fetchByIdAsync(id.toString(), context);
+  }
+
   public static AdPlacePageSet fetchById(String id, APIContext context) throws APIException {
-    AdPlacePageSet adPlacePageSet =
+    return
       new APIRequestGet(id, context)
       .requestAllFields()
       .execute();
-    return adPlacePageSet;
+  }
+
+  public static ListenableFuture<AdPlacePageSet> fetchByIdAsync(String id, APIContext context) throws APIException {
+    return
+      new APIRequestGet(id, context)
+      .requestAllFields()
+      .executeAsync();
   }
 
   public static APINodeList<AdPlacePageSet> fetchByIds(List<String> ids, List<String> fields, APIContext context) throws APIException {
@@ -104,6 +105,14 @@ public class AdPlacePageSet extends APINode {
     );
   }
 
+  public static ListenableFuture<APINodeList<AdPlacePageSet>> fetchByIdsAsync(List<String> ids, List<String> fields, APIContext context) throws APIException {
+    return
+      new APIRequest(context, "", "/", "GET", AdPlacePageSet.getParser())
+        .setParam("ids", APIRequest.joinStringList(ids))
+        .requestFields(fields)
+        .executeAsyncBase();
+  }
+
   private String getPrefixedId() {
     return getId();
   }
@@ -111,7 +120,7 @@ public class AdPlacePageSet extends APINode {
   public String getId() {
     return getFieldId().toString();
   }
-  public static AdPlacePageSet loadJSON(String json, APIContext context) {
+  public static AdPlacePageSet loadJSON(String json, APIContext context, String header) {
     AdPlacePageSet adPlacePageSet = getGson().fromJson(json, AdPlacePageSet.class);
     if (context.isDebug()) {
       JsonParser parser = new JsonParser();
@@ -124,15 +133,16 @@ public class AdPlacePageSet extends APINode {
         context.log("[Warning] When parsing response, object is not consistent with JSON:");
         context.log("[JSON]" + o1);
         context.log("[Object]" + o2);
-      };
+      }
     }
     adPlacePageSet.context = context;
     adPlacePageSet.rawValue = json;
+    adPlacePageSet.header = header;
     return adPlacePageSet;
   }
 
-  public static APINodeList<AdPlacePageSet> parseResponse(String json, APIContext context, APIRequest request) throws MalformedResponseException {
-    APINodeList<AdPlacePageSet> adPlacePageSets = new APINodeList<AdPlacePageSet>(request, json);
+  public static APINodeList<AdPlacePageSet> parseResponse(String json, APIContext context, APIRequest request, String header) throws MalformedResponseException {
+    APINodeList<AdPlacePageSet> adPlacePageSets = new APINodeList<AdPlacePageSet>(request, json, header);
     JsonArray arr;
     JsonObject obj;
     JsonParser parser = new JsonParser();
@@ -143,23 +153,32 @@ public class AdPlacePageSet extends APINode {
         // First, check if it's a pure JSON Array
         arr = result.getAsJsonArray();
         for (int i = 0; i < arr.size(); i++) {
-          adPlacePageSets.add(loadJSON(arr.get(i).getAsJsonObject().toString(), context));
+          adPlacePageSets.add(loadJSON(arr.get(i).getAsJsonObject().toString(), context, header));
         };
         return adPlacePageSets;
       } else if (result.isJsonObject()) {
         obj = result.getAsJsonObject();
         if (obj.has("data")) {
           if (obj.has("paging")) {
-            JsonObject paging = obj.get("paging").getAsJsonObject().get("cursors").getAsJsonObject();
-            String before = paging.has("before") ? paging.get("before").getAsString() : null;
-            String after = paging.has("after") ? paging.get("after").getAsString() : null;
-            adPlacePageSets.setPaging(before, after);
+            JsonObject paging = obj.get("paging").getAsJsonObject();
+            if (paging.has("cursors")) {
+                JsonObject cursors = paging.get("cursors").getAsJsonObject();
+                String before = cursors.has("before") ? cursors.get("before").getAsString() : null;
+                String after = cursors.has("after") ? cursors.get("after").getAsString() : null;
+                adPlacePageSets.setCursors(before, after);
+            }
+            String previous = paging.has("previous") ? paging.get("previous").getAsString() : null;
+            String next = paging.has("next") ? paging.get("next").getAsString() : null;
+            adPlacePageSets.setPaging(previous, next);
+            if (context.hasAppSecret()) {
+              adPlacePageSets.setAppSecret(context.getAppSecretProof());
+            }
           }
           if (obj.get("data").isJsonArray()) {
             // Second, check if it's a JSON array with "data"
             arr = obj.get("data").getAsJsonArray();
             for (int i = 0; i < arr.size(); i++) {
-              adPlacePageSets.add(loadJSON(arr.get(i).getAsJsonObject().toString(), context));
+              adPlacePageSets.add(loadJSON(arr.get(i).getAsJsonObject().toString(), context, header));
             };
           } else if (obj.get("data").isJsonObject()) {
             // Third, check if it's a JSON object with "data"
@@ -170,13 +189,13 @@ public class AdPlacePageSet extends APINode {
                 isRedownload = true;
                 obj = obj.getAsJsonObject(s);
                 for (Map.Entry<String, JsonElement> entry : obj.entrySet()) {
-                  adPlacePageSets.add(loadJSON(entry.getValue().toString(), context));
+                  adPlacePageSets.add(loadJSON(entry.getValue().toString(), context, header));
                 }
                 break;
               }
             }
             if (!isRedownload) {
-              adPlacePageSets.add(loadJSON(obj.toString(), context));
+              adPlacePageSets.add(loadJSON(obj.toString(), context, header));
             }
           }
           return adPlacePageSets;
@@ -184,7 +203,7 @@ public class AdPlacePageSet extends APINode {
           // Fourth, check if it's a map of image objects
           obj = obj.get("images").getAsJsonObject();
           for (Map.Entry<String, JsonElement> entry : obj.entrySet()) {
-              adPlacePageSets.add(loadJSON(entry.getValue().toString(), context));
+              adPlacePageSets.add(loadJSON(entry.getValue().toString(), context, header));
           }
           return adPlacePageSets;
         } else {
@@ -203,7 +222,7 @@ public class AdPlacePageSet extends APINode {
               value.getAsJsonObject().get("id") != null &&
               value.getAsJsonObject().get("id").getAsString().equals(key)
             ) {
-              adPlacePageSets.add(loadJSON(value.toString(), context));
+              adPlacePageSets.add(loadJSON(value.toString(), context, header));
             } else {
               isIdIndexedArray = false;
               break;
@@ -215,7 +234,7 @@ public class AdPlacePageSet extends APINode {
 
           // Sixth, check if it's pure JsonObject
           adPlacePageSets.clear();
-          adPlacePageSets.add(loadJSON(json, context));
+          adPlacePageSets.add(loadJSON(json, context, header));
           return adPlacePageSets;
         }
       }
@@ -247,10 +266,6 @@ public class AdPlacePageSet extends APINode {
     return new APIRequestGet(this.getPrefixedId().toString(), context);
   }
 
-  public APIRequestUpdate update() {
-    return new APIRequestUpdate(this.getPrefixedId().toString(), context);
-  }
-
 
   public String getFieldAccountId() {
     return mAccountId;
@@ -272,7 +287,10 @@ public class AdPlacePageSet extends APINode {
     return mPagesCount;
   }
 
-  public Object getFieldParentPage() {
+  public Page getFieldParentPage() {
+    if (mParentPage != null) {
+      mParentPage.context = getContext();
+    }
     return mParentPage;
   }
 
@@ -298,8 +316,8 @@ public class AdPlacePageSet extends APINode {
     };
 
     @Override
-    public AdPlacePageSet parseResponse(String response) throws APIException {
-      return AdPlacePageSet.parseResponse(response, getContext(), this).head();
+    public AdPlacePageSet parseResponse(String response, String header) throws APIException {
+      return AdPlacePageSet.parseResponse(response, getContext(), this, header).head();
     }
 
     @Override
@@ -309,9 +327,30 @@ public class AdPlacePageSet extends APINode {
 
     @Override
     public AdPlacePageSet execute(Map<String, Object> extraParams) throws APIException {
-      lastResponse = parseResponse(executeInternal(extraParams));
+      ResponseWrapper rw = executeInternal(extraParams);
+      lastResponse = parseResponse(rw.getBody(), rw.getHeader());
       return lastResponse;
     }
+
+    public ListenableFuture<AdPlacePageSet> executeAsync() throws APIException {
+      return executeAsync(new HashMap<String, Object>());
+    };
+
+    public ListenableFuture<AdPlacePageSet> executeAsync(Map<String, Object> extraParams) throws APIException {
+      return Futures.transform(
+        executeAsyncInternal(extraParams),
+        new Function<ResponseWrapper, AdPlacePageSet>() {
+           public AdPlacePageSet apply(ResponseWrapper result) {
+             try {
+               return APIRequestGet.this.parseResponse(result.getBody(), result.getHeader());
+             } catch (Exception e) {
+               throw new RuntimeException(e);
+             }
+           }
+         },
+         MoreExecutors.directExecutor()
+      );
+    };
 
     public APIRequestGet(String nodeId, APIContext context) {
       super(context, nodeId, "/", "GET", Arrays.asList(PARAMS));
@@ -410,106 +449,37 @@ public class AdPlacePageSet extends APINode {
     }
   }
 
-  public static class APIRequestUpdate extends APIRequest<AdPlacePageSet> {
-
-    AdPlacePageSet lastResponse = null;
-    @Override
-    public AdPlacePageSet getLastResponse() {
-      return lastResponse;
-    }
-    public static final String[] PARAMS = {
-      "name",
-    };
-
-    public static final String[] FIELDS = {
-    };
-
-    @Override
-    public AdPlacePageSet parseResponse(String response) throws APIException {
-      return AdPlacePageSet.parseResponse(response, getContext(), this).head();
-    }
-
-    @Override
-    public AdPlacePageSet execute() throws APIException {
-      return execute(new HashMap<String, Object>());
-    }
-
-    @Override
-    public AdPlacePageSet execute(Map<String, Object> extraParams) throws APIException {
-      lastResponse = parseResponse(executeInternal(extraParams));
-      return lastResponse;
-    }
-
-    public APIRequestUpdate(String nodeId, APIContext context) {
-      super(context, nodeId, "/", "POST", Arrays.asList(PARAMS));
-    }
-
-    @Override
-    public APIRequestUpdate setParam(String param, Object value) {
-      setParamInternal(param, value);
-      return this;
-    }
-
-    @Override
-    public APIRequestUpdate setParams(Map<String, Object> params) {
-      setParamsInternal(params);
-      return this;
-    }
-
-
-    public APIRequestUpdate setName (String name) {
-      this.setParam("name", name);
-      return this;
-    }
-
-    public APIRequestUpdate requestAllFields () {
-      return this.requestAllFields(true);
-    }
-
-    public APIRequestUpdate requestAllFields (boolean value) {
-      for (String field : FIELDS) {
-        this.requestField(field, value);
-      }
-      return this;
-    }
-
-    @Override
-    public APIRequestUpdate requestFields (List<String> fields) {
-      return this.requestFields(fields, true);
-    }
-
-    @Override
-    public APIRequestUpdate requestFields (List<String> fields, boolean value) {
-      for (String field : fields) {
-        this.requestField(field, value);
-      }
-      return this;
-    }
-
-    @Override
-    public APIRequestUpdate requestField (String field) {
-      this.requestField(field, true);
-      return this;
-    }
-
-    @Override
-    public APIRequestUpdate requestField (String field, boolean value) {
-      this.requestFieldInternal(field, value);
-      return this;
-    }
-
-  }
-
   public static enum EnumLocationTypes {
-      @SerializedName("recent")
-      VALUE_RECENT("recent"),
       @SerializedName("home")
       VALUE_HOME("home"),
-      NULL(null);
+      @SerializedName("recent")
+      VALUE_RECENT("recent"),
+      ;
 
       private String value;
 
       private EnumLocationTypes(String value) {
+        this.value = value;
+      }
+
+      @Override
+      public String toString() {
+        return value;
+      }
+  }
+
+  public static enum EnumTargetedAreaType {
+      @SerializedName("CUSTOM_RADIUS")
+      VALUE_CUSTOM_RADIUS("CUSTOM_RADIUS"),
+      @SerializedName("MARKETING_AREA")
+      VALUE_MARKETING_AREA("MARKETING_AREA"),
+      @SerializedName("NONE")
+      VALUE_NONE("NONE"),
+      ;
+
+      private String value;
+
+      private EnumTargetedAreaType(String value) {
         this.value = value;
       }
 
@@ -547,8 +517,8 @@ public class AdPlacePageSet extends APINode {
 
   public static APIRequest.ResponseParser<AdPlacePageSet> getParser() {
     return new APIRequest.ResponseParser<AdPlacePageSet>() {
-      public APINodeList<AdPlacePageSet> parseResponse(String response, APIContext context, APIRequest<AdPlacePageSet> request) throws MalformedResponseException {
-        return AdPlacePageSet.parseResponse(response, context, request);
+      public APINodeList<AdPlacePageSet> parseResponse(String response, APIContext context, APIRequest<AdPlacePageSet> request, String header) throws MalformedResponseException {
+        return AdPlacePageSet.parseResponse(response, context, request, header);
       }
     };
   }

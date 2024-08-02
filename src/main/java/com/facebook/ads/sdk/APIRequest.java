@@ -22,30 +22,42 @@
  */
 package com.facebook.ads.sdk;
 
-import com.google.gson.Gson;
-import com.google.gson.GsonBuilder;
-import java.io.BufferedReader;
-import java.io.DataOutputStream;
-import java.io.File;
-import java.io.FileInputStream;
-import java.io.IOException;
-import java.io.InputStreamReader;
-import java.lang.reflect.Modifier;
-import java.net.URL;
-import java.net.URLEncoder;
 import java.nio.file.Files;
+import java.util.Arrays;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.Random;
+import java.net.URL;
+import java.net.URLEncoder;
 import javax.net.ssl.HttpsURLConnection;
+import java.io.BufferedReader;
+import java.lang.reflect.Modifier;
+import java.lang.StringBuilder;
+import java.io.DataOutputStream;
+import java.io.File;
+import java.io.FileInputStream;
+import java.io.InputStream;
+import java.io.InputStreamReader;
+import java.io.IOException;
+import java.util.Random;
+
+import com.google.common.base.Function;
+import com.google.common.util.concurrent.FutureCallback;
+import com.google.common.util.concurrent.Futures;
+import com.google.common.util.concurrent.ListenableFuture;
+import com.google.common.util.concurrent.MoreExecutors;
+import com.google.common.util.concurrent.SettableFuture;
+import com.google.gson.Gson;
+import com.google.gson.GsonBuilder;
+import java.nio.charset.StandardCharsets;
 
 public class APIRequest<T extends APINode> {
 
   public static final String USER_AGENT = APIConfig.USER_AGENT;
 
   private static IRequestExecutor executor = new DefaultRequestExecutor();
+  private static IAsyncRequestExecutor asyncExecutor = new DefaultAsyncRequestExecutor();
 
   protected APIContext context;
   protected boolean useVideoEndpoint = false;
@@ -56,14 +68,25 @@ public class APIRequest<T extends APINode> {
   protected ResponseParser<T> parser;
   protected Map<String, Object> params = new HashMap<String, Object>();
   protected List<String> returnFields;
+  private String overrideUrl;
   private APIResponse lastResponse = null;
 
   public static void changeRequestExecutor(IRequestExecutor newExecutor) {
     executor = newExecutor;
   }
 
+  public static void changeAsyncRequestExecutor(
+    IAsyncRequestExecutor newExecutor
+  ) {
+    asyncExecutor = newExecutor;
+  }
+
   public static IRequestExecutor getExecutor() {
     return executor;
+  }
+
+  public static IAsyncRequestExecutor getAsyncExecutor() {
+    return asyncExecutor;
   }
 
   public APIRequest(APIContext context, String nodeId, String endpoint, String method) {
@@ -91,11 +114,11 @@ public class APIRequest<T extends APINode> {
     return lastResponse;
   };
 
-  public APIResponse parseResponse(String response) throws APIException {
+  public APIResponse parseResponse(String response, String header) throws APIException {
     if (parser != null) {
-      return parser.parseResponse(response, context, this);
+      return parser.parseResponse(response, context, this, header);
     } else {
-      return APINode.parseResponse(response, context, new APIRequest<APINode>(context, nodeId, endpoint, method, paramNames));
+      return APINode.parseResponse(response, context, new APIRequest<APINode>(context, nodeId, endpoint, method, paramNames), header);
     }
   };
 
@@ -104,8 +127,29 @@ public class APIRequest<T extends APINode> {
   };
 
   public APIResponse execute(Map<String, Object> extraParams) throws APIException {
-    lastResponse = parseResponse(executeInternal(extraParams));
+    ResponseWrapper rw = executeInternal(extraParams);
+    lastResponse = parseResponse(rw.getBody(), rw.getHeader());
     return lastResponse;
+  };
+
+  public ListenableFuture<APIResponse> executeAsyncBase() throws APIException {
+    return executeAsyncBase(new HashMap<String, Object>());
+  };
+
+  public ListenableFuture<APIResponse> executeAsyncBase(Map<String, Object> extraParams) throws APIException {
+    return Futures.transform(
+      executeAsyncInternal(extraParams),
+      new Function<ResponseWrapper, APIResponse>() {
+         public APIResponse apply(ResponseWrapper result) {
+           try {
+             return APIRequest.this.parseResponse(result.getBody(), result.getHeader());
+           } catch (Exception e) {
+             throw new RuntimeException(e);
+           }
+         }
+       },
+       MoreExecutors.directExecutor()
+    );
   };
 
   public APIRequest<T> setParam(String param, Object value) {
@@ -144,20 +188,50 @@ public class APIRequest<T extends APINode> {
     return this;
   }
 
-  protected String executeInternal() throws APIException {
+  protected ResponseWrapper executeInternal() throws APIException {
     return executeInternal(null);
   }
 
-  protected String executeInternal(Map<String, Object> extraParams) throws APIException {
+  protected ResponseWrapper executeInternal(Map<String, Object> extraParams) throws APIException {
     // extraParams are one-time params for this call,
     // so that the APIRequest can be reused later on.
-    String response = null;
+    ResponseWrapper response = null;
     try {
       context.log("========Start of API Call========");
       response = executor.execute(method, getApiUrl(), getAllParams(extraParams), context);
       context.log("Response:");
-      context.log(response);
+      context.log(response.getBody());
       context.log("========End of API Call========");
+    } catch(IOException e) {
+      throw new APIException.FailedRequestException(e);
+    }
+    return response;
+  }
+
+  protected ListenableFuture<ResponseWrapper> executeAsyncInternal() throws APIException {
+    return executeAsyncInternal(null);
+  }
+
+  protected ListenableFuture<ResponseWrapper> executeAsyncInternal(Map<String, Object> extraParams) throws APIException {
+    // extraParams are one-time params for this call,
+    // so that the APIRequest can be reused later on.
+    ListenableFuture<ResponseWrapper> response = null;
+    try {
+      context.log("========Start of Async API Call========");
+      response = asyncExecutor.execute(method, getApiUrl(), getAllParams(extraParams), context);
+      Futures.addCallback(
+        response,
+        new FutureCallback<ResponseWrapper>() {
+          public void onSuccess(ResponseWrapper result) {
+            context.log("Response:");
+            context.log(result.getBody());
+            context.log("========End of API Call========");
+          }
+          public void onFailure(Throwable t) {
+          }
+        },
+        MoreExecutors.directExecutor()
+      );
     } catch(IOException e) {
       throw new APIException.FailedRequestException(e);
     }
@@ -180,13 +254,29 @@ public class APIRequest<T extends APINode> {
     this.params = params;
   }
 
-  protected void requestFieldInternal(String field, boolean value) {
+  /* This is a hacky way to implement pagination
+   * In current implementaion, request is based on nodeId/endpoint/param
+   * However in case we have paging, the previous/next returns the overall
+   * url already. In that case, we don't want to parse and reconstruct the
+   * url. Thus add this override to use the returned url directly.
+   */
+  public void setOverrideUrl(String url) {
+    this.overrideUrl = url;
+  }
+
+  protected void requestFieldInternal(String field, boolean addField) {
     if (returnFields == null) returnFields = new ArrayList<String>();
-    if (value == true && !returnFields.contains(field)) returnFields.add(field);
-    else returnFields.remove(field);
+    if (addField) {
+      if(!returnFields.contains(field)) returnFields.add(field);
+    } else {
+      returnFields.remove(field);
+    }
   }
 
   private Map<String, Object> getAllParams(Map<String, Object> extraParams) {
+    if (overrideUrl != null) {
+      return new HashMap<String, Object>();
+    }
     Map<String, Object> allParams = new HashMap<String, Object>(params);
     if (extraParams != null) allParams.putAll(extraParams);
     allParams.put("access_token", context.getAccessToken());
@@ -197,14 +287,11 @@ public class APIRequest<T extends APINode> {
     return allParams;
   }
 
-  private static String readResponse(HttpsURLConnection con, APIContext ctx) throws APIException, IOException {
+  private static ResponseWrapper readResponse(HttpsURLConnection con) throws APIException, IOException {
     try {
       int responseCode = con.getResponseCode();
-      // contains info about the platform utilization
-      // see https://developers.facebook.com/docs/marketing-api/insights/best-practices#insightscallload
-      ctx.setAdsInsightsThrottle(con.getHeaderField("X-FB-Ads-Insights-Throttle"));
 
-
+      String header = convertToString(con.getHeaderFields());
       BufferedReader in = new BufferedReader(new InputStreamReader(con.getInputStream()));
       String inputLine;
       StringBuilder response = new StringBuilder();
@@ -213,22 +300,28 @@ public class APIRequest<T extends APINode> {
         response.append(inputLine);
       }
       in.close();
-      return response.toString();
+      return new ResponseWrapper(response.toString(), header);
     } catch(Exception e) {
-
-      BufferedReader in = new BufferedReader(new InputStreamReader(con.getErrorStream()));
-      String inputLine;
+      InputStream errorStream = con.getErrorStream();
       StringBuilder response = new StringBuilder();
-
-      while ((inputLine = in.readLine()) != null) {
-        response.append(inputLine);
+      if (errorStream != null) {
+        BufferedReader in = new BufferedReader(new InputStreamReader(errorStream));
+        String inputLine;
+        while ((inputLine = in.readLine()) != null) {
+          response.append(inputLine);
+        }
+        in.close();
       }
-      in.close();
-      throw new APIException.FailedRequestException(response.toString(), e);
+      throw new APIException.FailedRequestException(
+        convertToString(con.getHeaderFields()), response.toString(), e
+      );
     }
   }
 
   private String getApiUrl() {
+    if (overrideUrl != null) {
+      return overrideUrl;
+    }
     String endpointBas = useVideoEndpoint ? context.getVideoEndpointBase() : context.getEndpointBase();
     return endpointBas + "/" + context.getVersion() + "/" + nodeId + endpoint;
   }
@@ -277,6 +370,11 @@ public class APIRequest<T extends APINode> {
     return this;
   }
 
+  public APIRequest addToBatch(BatchRequest batch, String name, boolean omitResponseOnSuccess) {
+    batch.addRequest(name, omitResponseOnSuccess, this);
+    return this;
+  }
+
   BatchRequest.BatchModeRequestInfo getBatchModeRequestInfo() throws IOException {
     BatchRequest.BatchModeRequestInfo info = new BatchRequest.BatchModeRequestInfo();
     Map<String, Object> allParams = new HashMap<String, Object>(params);
@@ -309,18 +407,24 @@ public class APIRequest<T extends APINode> {
   }
 
   public static interface ResponseParser<T extends APINode> {
-    public APINodeList<T> parseResponse(String response, APIContext context, APIRequest<T> request)  throws APIException.MalformedResponseException;
+    public APINodeList<T> parseResponse(String response, APIContext context, APIRequest<T> request, String header)  throws APIException.MalformedResponseException;
   }
 
   public static interface IRequestExecutor {
-    public String execute(String method, String apiUrl, Map<String, Object> allParams, APIContext context) throws APIException, IOException;
-    public String sendGet(String apiUrl, Map<String, Object> allParams, APIContext context) throws APIException, IOException;
-    public String sendPost(String apiUrl, Map<String, Object> allParams, APIContext context) throws APIException, IOException;
-    public String sendDelete(String apiUrl, Map<String, Object> allParams, APIContext context) throws APIException, IOException;
+    public ResponseWrapper execute(String method, String apiUrl, Map<String, Object> allParams, APIContext context) throws APIException, IOException;
+    public ResponseWrapper sendGet(String apiUrl, Map<String, Object> allParams, APIContext context) throws APIException, IOException;
+    public ResponseWrapper sendPost(String apiUrl, Map<String, Object> allParams, APIContext context) throws APIException, IOException;
+    public ResponseWrapper sendDelete(String apiUrl, Map<String, Object> allParams, APIContext context) throws APIException, IOException;
   }
 
-  public static class DefaultRequestExecutor implements IRequestExecutor {
+  public static interface IAsyncRequestExecutor {
+    public ListenableFuture<ResponseWrapper> execute(String method, String apiUrl, Map<String, Object> allParams, APIContext context) throws APIException, IOException;
+    public ListenableFuture<ResponseWrapper> sendGet(String apiUrl, Map<String, Object> allParams, APIContext context) throws APIException, IOException;
+    public ListenableFuture<ResponseWrapper> sendPost(String apiUrl, Map<String, Object> allParams, APIContext context) throws APIException, IOException;
+    public ListenableFuture<ResponseWrapper> sendDelete(String apiUrl, Map<String, Object> allParams, APIContext context) throws APIException, IOException;
+  }
 
+  public static class RequestHelper {
     private static final String DEFAULT_CONTENT_TYPE = "application/octet-stream";
     public static Map<String, String> fileToContentTypeMap = new HashMap<String, String>();
     static {
@@ -331,103 +435,7 @@ public class APIRequest<T extends APINode> {
       fileToContentTypeMap.put(".txt", "text/plain");
     }
 
-    public String execute(String method, String apiUrl, Map<String, Object> allParams, APIContext context) throws APIException, IOException {
-      if ("GET".equals(method)) return sendGet(apiUrl, allParams, context);
-      else if ("POST".equals(method)) return sendPost(apiUrl, allParams, context);
-      else if ("DELETE".equals(method)) return sendDelete(apiUrl, allParams, context);
-      else throw new IllegalArgumentException("Unsupported http method. Currently only GET, POST, and DELETE are supported");
-    }
-
-    public String sendGet(String apiUrl, Map<String, Object> allParams, APIContext context) throws APIException, IOException {
-      StringBuilder urlString = new StringBuilder(apiUrl);
-      boolean firstEntry = true;
-      for (Map.Entry entry : allParams.entrySet()) {
-        urlString.append((firstEntry ? "?" : "&") + URLEncoder.encode(entry.getKey().toString(), "UTF-8") + "=" + URLEncoder.encode(convertToString(entry.getValue()), "UTF-8"));
-        firstEntry = false;
-      }
-      URL url = new URL(urlString.toString());
-      context.log("Request:");
-      context.log("GET: " + url.toString());
-      HttpsURLConnection con = (HttpsURLConnection) url.openConnection();
-
-      con.setRequestMethod("GET");
-      con.setRequestProperty("User-Agent", USER_AGENT);
-      con.setRequestProperty("Content-Type","application/x-www-form-urlencoded");
-
-      return readResponse(con, context);
-    }
-
-    public String sendPost(String apiUrl, Map<String, Object> allParams, APIContext context) throws APIException, IOException {
-      String boundary = "--------------------------" + new Random().nextLong();
-      URL url = new URL(apiUrl);
-      context.log("Post: " + url.toString());
-      HttpsURLConnection con = (HttpsURLConnection) url.openConnection();
-
-      con.setRequestMethod("POST");
-      con.setRequestProperty("User-Agent", USER_AGENT);
-      con.setRequestProperty("Content-Type","multipart/form-data; boundary=" + boundary);
-      con.setDoOutput(true);
-
-      int contentLength = getContentLength(allParams, boundary, context);
-
-      con.setRequestProperty("Content-Length", "" + contentLength);
-
-      DataOutputStream wr = new DataOutputStream(con.getOutputStream());
-      for (Map.Entry entry : allParams.entrySet()) {
-        writeStringInUTF8Bytes(wr, "--" + boundary + "\r\n");
-        if (entry.getValue() instanceof File) {
-          File file = (File) entry.getValue();
-          String contentType = getContentTypeForFile(file);
-          writeStringInUTF8Bytes(wr, "Content-Disposition: form-data; name=\"" + entry.getKey() + "\"; filename=\"" + file.getName() + "\"\r\n");
-          if (contentType != null) {
-            writeStringInUTF8Bytes(wr, "Content-Type: " + contentType + "\r\n");
-          }
-          writeStringInUTF8Bytes(wr, "\r\n");
-          FileInputStream fileInputStream = new FileInputStream(file);
-          byte[] buffer = new byte[1024];
-          int count = 0;
-          while ((count = fileInputStream.read(buffer)) >= 0) {
-            wr.write(buffer, 0, count);
-          }
-          writeStringInUTF8Bytes(wr, "\r\n");
-          fileInputStream.close();
-        } else if (entry.getValue() instanceof byte[]) {
-          byte[] bytes = (byte[]) entry.getValue();
-          writeStringInUTF8Bytes(wr, "Content-Disposition: form-data; name=\"" + entry.getKey() + "\"; filename=\"" + "chunkfile" + "\"\r\n\r\n");
-          wr.write(bytes, 0, bytes.length);
-          writeStringInUTF8Bytes(wr, "\r\n");
-        } else {
-          writeStringInUTF8Bytes(wr, "Content-Disposition: form-data; name=\"" + entry.getKey() + "\"\r\n\r\n");
-          writeStringInUTF8Bytes(wr, convertToString(entry.getValue()));
-          writeStringInUTF8Bytes(wr, "\r\n");
-        }
-      }
-      writeStringInUTF8Bytes(wr, "--" + boundary + "--\r\n");
-
-      wr.flush();
-      wr.close();
-
-      return readResponse(con, context);
-    }
-
-    public String sendDelete(String apiUrl, Map<String, Object> allParams, APIContext context) throws APIException, IOException {
-      StringBuilder urlString = new StringBuilder(apiUrl);
-      boolean firstEntry = true;
-      for (Map.Entry entry : allParams.entrySet()) {
-        urlString.append((firstEntry ? "?" : "&") + URLEncoder.encode(entry.getKey().toString(), "UTF-8") + "=" + URLEncoder.encode(convertToString(entry.getValue()), "UTF-8"));
-        firstEntry = false;
-      }
-      URL url = new URL(urlString.toString());
-      context.log("Delete: " + url.toString());
-      HttpsURLConnection con = (HttpsURLConnection) url.openConnection();
-
-      con.setRequestMethod("DELETE");
-      con.setRequestProperty("User-Agent", USER_AGENT);
-
-      return readResponse(con, context);
-    }
-
-    private static String getContentTypeForFile(File file) {
+    public static String getContentTypeForFile(File file) {
       String contentType = fileToContentTypeMap.get(getFileExtension(file));
 
       if (contentType != null) return contentType;
@@ -447,7 +455,7 @@ public class APIRequest<T extends APINode> {
       return fileName.substring(index, fileName.length());
     }
 
-    private static int getContentLength(Map<String, Object> allParams, String boundary, APIContext context) throws IOException {
+    public static int getContentLength(Map<String, Object> allParams, String boundary, APIContext context) throws IOException {
       int contentLength = 0;
       for (Map.Entry entry : allParams.entrySet()) {
         contentLength += ("--" + boundary + "\r\n").length();
@@ -478,11 +486,223 @@ public class APIRequest<T extends APINode> {
 
     private static int getLengthAndLog(APIContext context, String input) throws IOException {
       context.log(input);
-      return input.getBytes("UTF-8").length;
+      return input.getBytes(StandardCharsets.UTF_8).length;
+    }
+
+    public static String constructUrlString(String apiUrl, Map<String, Object> allParams) throws IOException {
+      StringBuilder urlString = new StringBuilder(apiUrl);
+      boolean firstEntry = true;
+      for (Map.Entry entry : allParams.entrySet()) {
+        urlString.append((firstEntry ? "?" : "&") + URLEncoder.encode(entry.getKey().toString(), "UTF-8") + "=" + URLEncoder.encode(convertToString(entry.getValue()), "UTF-8"));
+        firstEntry = false;
+      }
+      return urlString.toString();
+    }
+
+    public static ListenableFuture<ResponseWrapper> invoke(okhttp3.OkHttpClient client, okhttp3.Request request) {
+      final SettableFuture<ResponseWrapper> future = SettableFuture.create();
+      client.newCall(request).enqueue(
+        new okhttp3.Callback() {
+            @Override
+            public void onFailure(final okhttp3.Call call, IOException e) {
+                future.setException(
+                  new APIException.FailedRequestException(e)
+                );
+            }
+
+            @Override
+            public void onResponse(okhttp3.Call call, final okhttp3.Response response) throws IOException {
+                future.set(new ResponseWrapper(response.body().string(), convertToString(response.headers())));
+            }
+      });
+      return future;
+    }
+  }
+
+
+  public static class DefaultRequestExecutor implements IRequestExecutor {
+
+    public ResponseWrapper execute(String method, String apiUrl, Map<String, Object> allParams, APIContext context) throws APIException, IOException {
+      if ("GET".equals(method)) return sendGet(apiUrl, allParams, context);
+      else if ("POST".equals(method)) return sendPost(apiUrl, allParams, context);
+      else if ("DELETE".equals(method)) return sendDelete(apiUrl, allParams, context);
+      else throw new IllegalArgumentException("Unsupported http method. Currently only GET, POST, and DELETE are supported");
+    }
+
+    public ResponseWrapper sendGet(String apiUrl, Map<String, Object> allParams, APIContext context) throws APIException, IOException {
+      URL url = new URL(RequestHelper.constructUrlString(apiUrl, allParams));
+      context.log("Request:");
+      context.log("GET: " + url.toString());
+      HttpsURLConnection con = (HttpsURLConnection) url.openConnection();
+
+      con.setRequestMethod("GET");
+      con.setRequestProperty("User-Agent", USER_AGENT);
+      con.setRequestProperty("Content-Type","application/x-www-form-urlencoded");
+
+      return readResponse(con);
+    }
+
+    public ResponseWrapper sendPost(String apiUrl, Map<String, Object> allParams, APIContext context) throws APIException, IOException {
+      String boundary = "--------------------------" + new Random().nextLong();
+      URL url = new URL(apiUrl);
+      context.log("Post: " + url.toString());
+      HttpsURLConnection con = (HttpsURLConnection) url.openConnection();
+
+      con.setRequestMethod("POST");
+      con.setRequestProperty("User-Agent", USER_AGENT);
+      con.setRequestProperty("Content-Type","multipart/form-data; boundary=" + boundary);
+      con.setDoOutput(true);
+
+      int contentLength = RequestHelper.getContentLength(allParams, boundary, context);
+
+      con.setRequestProperty("Content-Length", "" + contentLength);
+
+      DataOutputStream wr = new DataOutputStream(con.getOutputStream());
+      for (Map.Entry entry : allParams.entrySet()) {
+        writeStringInUTF8Bytes(wr, "--" + boundary + "\r\n");
+        if (entry.getValue() instanceof File) {
+          File file = (File) entry.getValue();
+          String contentType = RequestHelper.getContentTypeForFile(file);
+          writeStringInUTF8Bytes(wr, "Content-Disposition: form-data; name=\"" + entry.getKey() + "\"; filename=\"" + file.getName() + "\"\r\n");
+          if (contentType != null) {
+            writeStringInUTF8Bytes(wr, "Content-Type: " + contentType + "\r\n");
+          }
+          writeStringInUTF8Bytes(wr, "\r\n");
+          FileInputStream fileInputStream = new FileInputStream(file);
+          byte[] buffer = new byte[1024];
+          int count = 0;
+          while ((count = fileInputStream.read(buffer)) >= 0) {
+            wr.write(buffer, 0, count);
+          }
+          writeStringInUTF8Bytes(wr, "\r\n");
+          fileInputStream.close();
+        } else if (entry.getValue() instanceof byte[]) {
+          byte[] bytes = (byte[]) entry.getValue();
+          writeStringInUTF8Bytes(wr, "Content-Disposition: form-data; name=\"" + entry.getKey() + "\"; filename=\"" + "chunkfile" + "\"\r\n\r\n");
+          wr.write(bytes, 0, bytes.length);
+          writeStringInUTF8Bytes(wr, "\r\n");
+        } else {
+          writeStringInUTF8Bytes(wr, "Content-Disposition: form-data; name=\"" + entry.getKey() + "\"\r\n\r\n");
+          writeStringInUTF8Bytes(wr, convertToString(entry.getValue()));
+          writeStringInUTF8Bytes(wr, "\r\n");
+        }
+      }
+      writeStringInUTF8Bytes(wr, "--" + boundary + "--\r\n");
+
+      wr.flush();
+      wr.close();
+
+      return readResponse(con);
+    }
+
+    public ResponseWrapper sendDelete(String apiUrl, Map<String, Object> allParams, APIContext context) throws APIException, IOException {
+      URL url = new URL(RequestHelper.constructUrlString(apiUrl, allParams));
+      context.log("Delete: " + url.toString());
+      HttpsURLConnection con = (HttpsURLConnection) url.openConnection();
+
+      con.setRequestMethod("DELETE");
+      con.setRequestProperty("User-Agent", USER_AGENT);
+
+      return readResponse(con);
     }
 
     private static void writeStringInUTF8Bytes(DataOutputStream wr, String input) throws IOException {
-      wr.write(input.getBytes("UTF-8"));
+      wr.write(input.getBytes(StandardCharsets.UTF_8));
+    }
+  }
+
+  public static class DefaultAsyncRequestExecutor implements IAsyncRequestExecutor {
+    static okhttp3.OkHttpClient client = null;
+    static void init() {
+      client = new okhttp3.OkHttpClient();
+    }
+    static {
+      init();
+    }
+
+    public ListenableFuture<ResponseWrapper> execute(String method, String apiUrl, Map<String, Object> allParams, APIContext context) throws APIException, IOException {
+      if ("GET".equals(method)) return sendGet(apiUrl, allParams, context);
+      else if ("POST".equals(method)) return sendPost(apiUrl, allParams, context);
+      else if ("DELETE".equals(method)) return sendDelete(apiUrl, allParams, context);
+      else throw new IllegalArgumentException("Unsupported http method. Currently only GET, POST, and DELETE are supported");
+    }
+
+    public ListenableFuture<ResponseWrapper> sendGet(String apiUrl, Map<String, Object> allParams, APIContext context) throws APIException, IOException {
+      context.log("Request:");
+      context.log("GET: " + apiUrl.toString());
+      okhttp3.Request request = new okhttp3.Request.Builder()
+          .url(RequestHelper.constructUrlString(apiUrl, allParams))
+          .get()
+          .header("User-Agent", USER_AGENT)
+          .header("Content-Type","application/x-www-form-urlencoded")
+          .build();
+
+      return RequestHelper.invoke(client, request);
+    }
+
+    public ListenableFuture<ResponseWrapper> sendPost(String apiUrl, Map<String, Object> allParams, APIContext context) throws APIException, IOException {
+      String boundary = "--------------------------" + new Random().nextLong();
+      okhttp3.MultipartBody.Builder builder = new okhttp3.MultipartBody.Builder(boundary)
+          .setType(okhttp3.MultipartBody.FORM);
+      for (Map.Entry<String, Object> entry : allParams.entrySet()) {
+        if (entry.getValue() instanceof File) {
+          File file = (File) entry.getValue();
+          String contentType = RequestHelper.getContentTypeForFile(file);
+          builder.addFormDataPart(
+            entry.getKey(),
+            file.getName(),
+            okhttp3.RequestBody.create(okhttp3.MediaType.parse(contentType), file)
+          );
+        } else if (entry.getValue() instanceof byte[]) {
+          builder.addFormDataPart(
+            entry.getKey(),
+            "chunkfile",
+            okhttp3.RequestBody.create(okhttp3.MediaType.parse("application/octet-stream"), (byte[])entry.getValue())
+          );
+        } else {
+          builder.addFormDataPart(
+            entry.getKey(),
+            convertToString(entry.getValue())
+          );
+        }
+      }
+      okhttp3.Request request = new okhttp3.Request
+        .Builder()
+        .url(apiUrl)
+        .post(builder.build())
+        .header("User-Agent", USER_AGENT)
+        .build();
+      return RequestHelper.invoke(client, request);
+    }
+
+    public ListenableFuture<ResponseWrapper> sendDelete(String apiUrl, Map<String, Object> allParams, APIContext context) throws APIException, IOException {
+      URL url = new URL(RequestHelper.constructUrlString(apiUrl, allParams));
+      context.log("Delete: " + url.toString());
+      okhttp3.Request request = new okhttp3.Request.Builder()
+          .url(RequestHelper.constructUrlString(apiUrl, allParams))
+          .delete()
+          .header("User-Agent", USER_AGENT)
+          .build();
+
+      return RequestHelper.invoke(client, request);
+    }
+  }
+
+  public static class ResponseWrapper {
+    private String body;
+    private String header;
+
+    public ResponseWrapper(String body, String header) {
+      this.body = body;
+      this.header = header;
+    }
+
+    public String getBody() {
+      return this.body;
+    }
+
+    public String getHeader() {
+      return this.header;
     }
   }
 }

@@ -1,24 +1,9 @@
-/**
- * Copyright (c) 2015-present, Facebook, Inc. All rights reserved.
+/*
+ * Copyright (c) Meta Platforms, Inc. and affiliates.
+ * All rights reserved.
  *
- * You are hereby granted a non-exclusive, worldwide, royalty-free license to
- * use, copy, modify, and distribute this software in source code or binary
- * form for use in connection with the web services and APIs provided by
- * Facebook.
- *
- * As with any software that integrates with the Facebook platform, your use
- * of this software is subject to the Facebook Developer Principles and
- * Policies [http://developers.facebook.com/policy/]. This copyright notice
- * shall be included in all copies or substantial portions of the software.
- *
- * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
- * IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
- * FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL
- * THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
- * LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING
- * FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
- * DEALINGS IN THE SOFTWARE.
- *
+ * This source code is licensed under the license found in the
+ * LICENSE file in the root directory of this source tree.
  */
 
 package com.facebook.ads.sdk;
@@ -31,6 +16,11 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
+import com.google.common.base.Function;
+import com.google.common.util.concurrent.Futures;
+import com.google.common.util.concurrent.ListenableFuture;
+import com.google.common.util.concurrent.MoreExecutors;
+import com.google.common.util.concurrent.SettableFuture;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonArray;
 import com.google.gson.annotations.SerializedName;
@@ -53,18 +43,38 @@ import com.facebook.ads.sdk.APIException.MalformedResponseException;
 public class CustomAudience extends APINode {
   @SerializedName("account_id")
   private String mAccountId = null;
-  @SerializedName("approximate_count")
-  private Long mApproximateCount = null;
+  @SerializedName("approximate_count_lower_bound")
+  private Long mApproximateCountLowerBound = null;
+  @SerializedName("approximate_count_upper_bound")
+  private Long mApproximateCountUpperBound = null;
+  @SerializedName("customer_file_source")
+  private String mCustomerFileSource = null;
   @SerializedName("data_source")
   private CustomAudienceDataSource mDataSource = null;
+  @SerializedName("data_source_types")
+  private String mDataSourceTypes = null;
+  @SerializedName("datafile_custom_audience_uploading_status")
+  private String mDatafileCustomAudienceUploadingStatus = null;
+  @SerializedName("delete_time")
+  private Long mDeleteTime = null;
   @SerializedName("delivery_status")
   private CustomAudienceStatus mDeliveryStatus = null;
   @SerializedName("description")
   private String mDescription = null;
+  @SerializedName("excluded_custom_audiences")
+  private List<CustomAudience> mExcludedCustomAudiences = null;
   @SerializedName("external_event_source")
   private AdsPixel mExternalEventSource = null;
+  @SerializedName("household_audience")
+  private Long mHouseholdAudience = null;
   @SerializedName("id")
   private String mId = null;
+  @SerializedName("included_custom_audiences")
+  private List<CustomAudience> mIncludedCustomAudiences = null;
+  @SerializedName("is_household")
+  private Boolean mIsHousehold = null;
+  @SerializedName("is_snapshot")
+  private Boolean mIsSnapshot = null;
   @SerializedName("is_value_based")
   private Boolean mIsValueBased = null;
   @SerializedName("lookalike_audience_ids")
@@ -77,16 +87,30 @@ public class CustomAudience extends APINode {
   private CustomAudienceStatus mOperationStatus = null;
   @SerializedName("opt_out_link")
   private String mOptOutLink = null;
+  @SerializedName("owner_business")
+  private Business mOwnerBusiness = null;
+  @SerializedName("page_deletion_marked_delete_time")
+  private Long mPageDeletionMarkedDeleteTime = null;
   @SerializedName("permission_for_actions")
-  private CustomAudiencePermission mPermissionForActions = null;
+  private AudiencePermissionForActions mPermissionForActions = null;
   @SerializedName("pixel_id")
   private String mPixelId = null;
+  @SerializedName("regulated_audience_spec")
+  private LookalikeSpec mRegulatedAudienceSpec = null;
   @SerializedName("retention_days")
   private Long mRetentionDays = null;
+  @SerializedName("rev_share_policy_id")
+  private Long mRevSharePolicyId = null;
   @SerializedName("rule")
   private String mRule = null;
   @SerializedName("rule_aggregation")
   private String mRuleAggregation = null;
+  @SerializedName("rule_v2")
+  private String mRuleV2 = null;
+  @SerializedName("seed_audience")
+  private Long mSeedAudience = null;
+  @SerializedName("sharing_status")
+  private CustomAudienceSharingStatus mSharingStatus = null;
   @SerializedName("subtype")
   private String mSubtype = null;
   @SerializedName("time_content_updated")
@@ -106,6 +130,7 @@ public class CustomAudience extends APINode {
 
   public CustomAudience(String id, APIContext context) {
     this.mId = id;
+
     this.context = context;
   }
 
@@ -119,12 +144,22 @@ public class CustomAudience extends APINode {
     return fetchById(id.toString(), context);
   }
 
+  public static ListenableFuture<CustomAudience> fetchByIdAsync(Long id, APIContext context) throws APIException {
+    return fetchByIdAsync(id.toString(), context);
+  }
+
   public static CustomAudience fetchById(String id, APIContext context) throws APIException {
-    CustomAudience customAudience =
+    return
       new APIRequestGet(id, context)
       .requestAllFields()
       .execute();
-    return customAudience;
+  }
+
+  public static ListenableFuture<CustomAudience> fetchByIdAsync(String id, APIContext context) throws APIException {
+    return
+      new APIRequestGet(id, context)
+      .requestAllFields()
+      .executeAsync();
   }
 
   public static APINodeList<CustomAudience> fetchByIds(List<String> ids, List<String> fields, APIContext context) throws APIException {
@@ -136,6 +171,14 @@ public class CustomAudience extends APINode {
     );
   }
 
+  public static ListenableFuture<APINodeList<CustomAudience>> fetchByIdsAsync(List<String> ids, List<String> fields, APIContext context) throws APIException {
+    return
+      new APIRequest(context, "", "/", "GET", CustomAudience.getParser())
+        .setParam("ids", APIRequest.joinStringList(ids))
+        .requestFields(fields)
+        .executeAsyncBase();
+  }
+
   private String getPrefixedId() {
     return getId();
   }
@@ -143,7 +186,7 @@ public class CustomAudience extends APINode {
   public String getId() {
     return getFieldId().toString();
   }
-  public static CustomAudience loadJSON(String json, APIContext context) {
+  public static CustomAudience loadJSON(String json, APIContext context, String header) {
     CustomAudience customAudience = getGson().fromJson(json, CustomAudience.class);
     if (context.isDebug()) {
       JsonParser parser = new JsonParser();
@@ -156,15 +199,16 @@ public class CustomAudience extends APINode {
         context.log("[Warning] When parsing response, object is not consistent with JSON:");
         context.log("[JSON]" + o1);
         context.log("[Object]" + o2);
-      };
+      }
     }
     customAudience.context = context;
     customAudience.rawValue = json;
+    customAudience.header = header;
     return customAudience;
   }
 
-  public static APINodeList<CustomAudience> parseResponse(String json, APIContext context, APIRequest request) throws MalformedResponseException {
-    APINodeList<CustomAudience> customAudiences = new APINodeList<CustomAudience>(request, json);
+  public static APINodeList<CustomAudience> parseResponse(String json, APIContext context, APIRequest request, String header) throws MalformedResponseException {
+    APINodeList<CustomAudience> customAudiences = new APINodeList<CustomAudience>(request, json, header);
     JsonArray arr;
     JsonObject obj;
     JsonParser parser = new JsonParser();
@@ -175,23 +219,32 @@ public class CustomAudience extends APINode {
         // First, check if it's a pure JSON Array
         arr = result.getAsJsonArray();
         for (int i = 0; i < arr.size(); i++) {
-          customAudiences.add(loadJSON(arr.get(i).getAsJsonObject().toString(), context));
+          customAudiences.add(loadJSON(arr.get(i).getAsJsonObject().toString(), context, header));
         };
         return customAudiences;
       } else if (result.isJsonObject()) {
         obj = result.getAsJsonObject();
         if (obj.has("data")) {
           if (obj.has("paging")) {
-            JsonObject paging = obj.get("paging").getAsJsonObject().get("cursors").getAsJsonObject();
-            String before = paging.has("before") ? paging.get("before").getAsString() : null;
-            String after = paging.has("after") ? paging.get("after").getAsString() : null;
-            customAudiences.setPaging(before, after);
+            JsonObject paging = obj.get("paging").getAsJsonObject();
+            if (paging.has("cursors")) {
+                JsonObject cursors = paging.get("cursors").getAsJsonObject();
+                String before = cursors.has("before") ? cursors.get("before").getAsString() : null;
+                String after = cursors.has("after") ? cursors.get("after").getAsString() : null;
+                customAudiences.setCursors(before, after);
+            }
+            String previous = paging.has("previous") ? paging.get("previous").getAsString() : null;
+            String next = paging.has("next") ? paging.get("next").getAsString() : null;
+            customAudiences.setPaging(previous, next);
+            if (context.hasAppSecret()) {
+              customAudiences.setAppSecret(context.getAppSecretProof());
+            }
           }
           if (obj.get("data").isJsonArray()) {
             // Second, check if it's a JSON array with "data"
             arr = obj.get("data").getAsJsonArray();
             for (int i = 0; i < arr.size(); i++) {
-              customAudiences.add(loadJSON(arr.get(i).getAsJsonObject().toString(), context));
+              customAudiences.add(loadJSON(arr.get(i).getAsJsonObject().toString(), context, header));
             };
           } else if (obj.get("data").isJsonObject()) {
             // Third, check if it's a JSON object with "data"
@@ -202,13 +255,13 @@ public class CustomAudience extends APINode {
                 isRedownload = true;
                 obj = obj.getAsJsonObject(s);
                 for (Map.Entry<String, JsonElement> entry : obj.entrySet()) {
-                  customAudiences.add(loadJSON(entry.getValue().toString(), context));
+                  customAudiences.add(loadJSON(entry.getValue().toString(), context, header));
                 }
                 break;
               }
             }
             if (!isRedownload) {
-              customAudiences.add(loadJSON(obj.toString(), context));
+              customAudiences.add(loadJSON(obj.toString(), context, header));
             }
           }
           return customAudiences;
@@ -216,7 +269,7 @@ public class CustomAudience extends APINode {
           // Fourth, check if it's a map of image objects
           obj = obj.get("images").getAsJsonObject();
           for (Map.Entry<String, JsonElement> entry : obj.entrySet()) {
-              customAudiences.add(loadJSON(entry.getValue().toString(), context));
+              customAudiences.add(loadJSON(entry.getValue().toString(), context, header));
           }
           return customAudiences;
         } else {
@@ -235,7 +288,7 @@ public class CustomAudience extends APINode {
               value.getAsJsonObject().get("id") != null &&
               value.getAsJsonObject().get("id").getAsString().equals(key)
             ) {
-              customAudiences.add(loadJSON(value.toString(), context));
+              customAudiences.add(loadJSON(value.toString(), context, header));
             } else {
               isIdIndexedArray = false;
               break;
@@ -247,7 +300,7 @@ public class CustomAudience extends APINode {
 
           // Sixth, check if it's pure JsonObject
           customAudiences.clear();
-          customAudiences.add(loadJSON(json, context));
+          customAudiences.add(loadJSON(json, context, header));
           return customAudiences;
         }
       }
@@ -291,12 +344,20 @@ public class CustomAudience extends APINode {
     return new APIRequestGetAds(this.getPrefixedId().toString(), context);
   }
 
-  public APIRequestGetPrefills getPrefills() {
-    return new APIRequestGetPrefills(this.getPrefixedId().toString(), context);
+  public APIRequestGetSalts getSalts() {
+    return new APIRequestGetSalts(this.getPrefixedId().toString(), context);
+  }
+
+  public APIRequestCreateSalt createSalt() {
+    return new APIRequestCreateSalt(this.getPrefixedId().toString(), context);
   }
 
   public APIRequestGetSessions getSessions() {
     return new APIRequestGetSessions(this.getPrefixedId().toString(), context);
+  }
+
+  public APIRequestGetShareDAccountInfo getShareDAccountInfo() {
+    return new APIRequestGetShareDAccountInfo(this.getPrefixedId().toString(), context);
   }
 
   public APIRequestDeleteUsers deleteUsers() {
@@ -305,6 +366,10 @@ public class CustomAudience extends APINode {
 
   public APIRequestCreateUser createUser() {
     return new APIRequestCreateUser(this.getPrefixedId().toString(), context);
+  }
+
+  public APIRequestCreateUsersReplace createUsersReplace() {
+    return new APIRequestCreateUsersReplace(this.getPrefixedId().toString(), context);
   }
 
   public APIRequestDelete delete() {
@@ -324,12 +389,32 @@ public class CustomAudience extends APINode {
     return mAccountId;
   }
 
-  public Long getFieldApproximateCount() {
-    return mApproximateCount;
+  public Long getFieldApproximateCountLowerBound() {
+    return mApproximateCountLowerBound;
+  }
+
+  public Long getFieldApproximateCountUpperBound() {
+    return mApproximateCountUpperBound;
+  }
+
+  public String getFieldCustomerFileSource() {
+    return mCustomerFileSource;
   }
 
   public CustomAudienceDataSource getFieldDataSource() {
     return mDataSource;
+  }
+
+  public String getFieldDataSourceTypes() {
+    return mDataSourceTypes;
+  }
+
+  public String getFieldDatafileCustomAudienceUploadingStatus() {
+    return mDatafileCustomAudienceUploadingStatus;
+  }
+
+  public Long getFieldDeleteTime() {
+    return mDeleteTime;
   }
 
   public CustomAudienceStatus getFieldDeliveryStatus() {
@@ -340,6 +425,10 @@ public class CustomAudience extends APINode {
     return mDescription;
   }
 
+  public List<CustomAudience> getFieldExcludedCustomAudiences() {
+    return mExcludedCustomAudiences;
+  }
+
   public AdsPixel getFieldExternalEventSource() {
     if (mExternalEventSource != null) {
       mExternalEventSource.context = getContext();
@@ -347,8 +436,24 @@ public class CustomAudience extends APINode {
     return mExternalEventSource;
   }
 
+  public Long getFieldHouseholdAudience() {
+    return mHouseholdAudience;
+  }
+
   public String getFieldId() {
     return mId;
+  }
+
+  public List<CustomAudience> getFieldIncludedCustomAudiences() {
+    return mIncludedCustomAudiences;
+  }
+
+  public Boolean getFieldIsHousehold() {
+    return mIsHousehold;
+  }
+
+  public Boolean getFieldIsSnapshot() {
+    return mIsSnapshot;
   }
 
   public Boolean getFieldIsValueBased() {
@@ -375,7 +480,18 @@ public class CustomAudience extends APINode {
     return mOptOutLink;
   }
 
-  public CustomAudiencePermission getFieldPermissionForActions() {
+  public Business getFieldOwnerBusiness() {
+    if (mOwnerBusiness != null) {
+      mOwnerBusiness.context = getContext();
+    }
+    return mOwnerBusiness;
+  }
+
+  public Long getFieldPageDeletionMarkedDeleteTime() {
+    return mPageDeletionMarkedDeleteTime;
+  }
+
+  public AudiencePermissionForActions getFieldPermissionForActions() {
     return mPermissionForActions;
   }
 
@@ -383,8 +499,16 @@ public class CustomAudience extends APINode {
     return mPixelId;
   }
 
+  public LookalikeSpec getFieldRegulatedAudienceSpec() {
+    return mRegulatedAudienceSpec;
+  }
+
   public Long getFieldRetentionDays() {
     return mRetentionDays;
+  }
+
+  public Long getFieldRevSharePolicyId() {
+    return mRevSharePolicyId;
   }
 
   public String getFieldRule() {
@@ -393,6 +517,18 @@ public class CustomAudience extends APINode {
 
   public String getFieldRuleAggregation() {
     return mRuleAggregation;
+  }
+
+  public String getFieldRuleV2() {
+    return mRuleV2;
+  }
+
+  public Long getFieldSeedAudience() {
+    return mSeedAudience;
+  }
+
+  public CustomAudienceSharingStatus getFieldSharingStatus() {
+    return mSharingStatus;
   }
 
   public String getFieldSubtype() {
@@ -428,8 +564,8 @@ public class CustomAudience extends APINode {
     };
 
     @Override
-    public APINodeList<APINode> parseResponse(String response) throws APIException {
-      return APINode.parseResponse(response, getContext(), this);
+    public APINodeList<APINode> parseResponse(String response, String header) throws APIException {
+      return APINode.parseResponse(response, getContext(), this, header);
     }
 
     @Override
@@ -439,9 +575,30 @@ public class CustomAudience extends APINode {
 
     @Override
     public APINodeList<APINode> execute(Map<String, Object> extraParams) throws APIException {
-      lastResponse = parseResponse(executeInternal(extraParams));
+      ResponseWrapper rw = executeInternal(extraParams);
+      lastResponse = parseResponse(rw.getBody(),rw.getHeader());
       return lastResponse;
     }
+
+    public ListenableFuture<APINodeList<APINode>> executeAsync() throws APIException {
+      return executeAsync(new HashMap<String, Object>());
+    };
+
+    public ListenableFuture<APINodeList<APINode>> executeAsync(Map<String, Object> extraParams) throws APIException {
+      return Futures.transform(
+        executeAsyncInternal(extraParams),
+        new Function<ResponseWrapper, APINodeList<APINode>>() {
+           public APINodeList<APINode> apply(ResponseWrapper result) {
+             try {
+               return APIRequestDeleteAdAccounts.this.parseResponse(result.getBody(), result.getHeader());
+             } catch (Exception e) {
+               throw new RuntimeException(e);
+             }
+           }
+         },
+         MoreExecutors.directExecutor()
+      );
+    };
 
     public APIRequestDeleteAdAccounts(String nodeId, APIContext context) {
       super(context, nodeId, "/adaccounts", "DELETE", Arrays.asList(PARAMS));
@@ -521,11 +678,14 @@ public class CustomAudience extends APINode {
     public static final String[] FIELDS = {
       "account_id",
       "account_status",
+      "ad_account_promotable_objects",
       "age",
       "agency_client_declaration",
+      "all_capabilities",
       "amount_spent",
       "attribution_spec",
       "balance",
+      "brand_safety_content_filter_levels",
       "business",
       "business_city",
       "business_country_code",
@@ -537,33 +697,43 @@ public class CustomAudience extends APINode {
       "capabilities",
       "created_time",
       "currency",
+      "custom_audience_info",
+      "default_dsa_beneficiary",
+      "default_dsa_payor",
       "disable_reason",
       "end_advertiser",
       "end_advertiser_name",
+      "existing_customers",
+      "extended_credit_invoice_group",
       "failed_delivery_checks",
+      "fb_entity",
       "funding_source",
       "funding_source_details",
       "has_migrated_permissions",
+      "has_page_authorized_adaccount",
       "id",
       "io_number",
       "is_attribution_spec_system_default",
       "is_direct_deals_enabled",
+      "is_in_3ds_authorization_enabled_market",
       "is_notifications_enabled",
       "is_personal",
       "is_prepay_account",
       "is_tax_id_required",
+      "liable_address",
       "line_numbers",
       "media_agency",
       "min_campaign_group_spend_cap",
       "min_daily_budget",
       "name",
-      "next_bill_date",
       "offsite_pixels_tos_accepted",
       "owner",
+      "owner_business",
       "partner",
       "rf_spec",
-      "salesforce_invoice_group_id",
+      "send_bill_to_address",
       "show_checkout_experience",
+      "sold_to_address",
       "spend_cap",
       "tax_id",
       "tax_id_status",
@@ -572,12 +742,15 @@ public class CustomAudience extends APINode {
       "timezone_name",
       "timezone_offset_hours_utc",
       "tos_accepted",
-      "user_role",
+      "user_access_expire_time",
+      "user_tasks",
+      "user_tos_accepted",
+      "viewable_business",
     };
 
     @Override
-    public APINodeList<AdAccount> parseResponse(String response) throws APIException {
-      return AdAccount.parseResponse(response, getContext(), this);
+    public APINodeList<AdAccount> parseResponse(String response, String header) throws APIException {
+      return AdAccount.parseResponse(response, getContext(), this, header);
     }
 
     @Override
@@ -587,9 +760,30 @@ public class CustomAudience extends APINode {
 
     @Override
     public APINodeList<AdAccount> execute(Map<String, Object> extraParams) throws APIException {
-      lastResponse = parseResponse(executeInternal(extraParams));
+      ResponseWrapper rw = executeInternal(extraParams);
+      lastResponse = parseResponse(rw.getBody(),rw.getHeader());
       return lastResponse;
     }
+
+    public ListenableFuture<APINodeList<AdAccount>> executeAsync() throws APIException {
+      return executeAsync(new HashMap<String, Object>());
+    };
+
+    public ListenableFuture<APINodeList<AdAccount>> executeAsync(Map<String, Object> extraParams) throws APIException {
+      return Futures.transform(
+        executeAsyncInternal(extraParams),
+        new Function<ResponseWrapper, APINodeList<AdAccount>>() {
+           public APINodeList<AdAccount> apply(ResponseWrapper result) {
+             try {
+               return APIRequestGetAdAccounts.this.parseResponse(result.getBody(), result.getHeader());
+             } catch (Exception e) {
+               throw new RuntimeException(e);
+             }
+           }
+         },
+         MoreExecutors.directExecutor()
+      );
+    };
 
     public APIRequestGetAdAccounts(String nodeId, APIContext context) {
       super(context, nodeId, "/adaccounts", "GET", Arrays.asList(PARAMS));
@@ -663,6 +857,13 @@ public class CustomAudience extends APINode {
       this.requestField("account_status", value);
       return this;
     }
+    public APIRequestGetAdAccounts requestAdAccountPromotableObjectsField () {
+      return this.requestAdAccountPromotableObjectsField(true);
+    }
+    public APIRequestGetAdAccounts requestAdAccountPromotableObjectsField (boolean value) {
+      this.requestField("ad_account_promotable_objects", value);
+      return this;
+    }
     public APIRequestGetAdAccounts requestAgeField () {
       return this.requestAgeField(true);
     }
@@ -675,6 +876,13 @@ public class CustomAudience extends APINode {
     }
     public APIRequestGetAdAccounts requestAgencyClientDeclarationField (boolean value) {
       this.requestField("agency_client_declaration", value);
+      return this;
+    }
+    public APIRequestGetAdAccounts requestAllCapabilitiesField () {
+      return this.requestAllCapabilitiesField(true);
+    }
+    public APIRequestGetAdAccounts requestAllCapabilitiesField (boolean value) {
+      this.requestField("all_capabilities", value);
       return this;
     }
     public APIRequestGetAdAccounts requestAmountSpentField () {
@@ -696,6 +904,13 @@ public class CustomAudience extends APINode {
     }
     public APIRequestGetAdAccounts requestBalanceField (boolean value) {
       this.requestField("balance", value);
+      return this;
+    }
+    public APIRequestGetAdAccounts requestBrandSafetyContentFilterLevelsField () {
+      return this.requestBrandSafetyContentFilterLevelsField(true);
+    }
+    public APIRequestGetAdAccounts requestBrandSafetyContentFilterLevelsField (boolean value) {
+      this.requestField("brand_safety_content_filter_levels", value);
       return this;
     }
     public APIRequestGetAdAccounts requestBusinessField () {
@@ -775,6 +990,27 @@ public class CustomAudience extends APINode {
       this.requestField("currency", value);
       return this;
     }
+    public APIRequestGetAdAccounts requestCustomAudienceInfoField () {
+      return this.requestCustomAudienceInfoField(true);
+    }
+    public APIRequestGetAdAccounts requestCustomAudienceInfoField (boolean value) {
+      this.requestField("custom_audience_info", value);
+      return this;
+    }
+    public APIRequestGetAdAccounts requestDefaultDsaBeneficiaryField () {
+      return this.requestDefaultDsaBeneficiaryField(true);
+    }
+    public APIRequestGetAdAccounts requestDefaultDsaBeneficiaryField (boolean value) {
+      this.requestField("default_dsa_beneficiary", value);
+      return this;
+    }
+    public APIRequestGetAdAccounts requestDefaultDsaPayorField () {
+      return this.requestDefaultDsaPayorField(true);
+    }
+    public APIRequestGetAdAccounts requestDefaultDsaPayorField (boolean value) {
+      this.requestField("default_dsa_payor", value);
+      return this;
+    }
     public APIRequestGetAdAccounts requestDisableReasonField () {
       return this.requestDisableReasonField(true);
     }
@@ -796,11 +1032,32 @@ public class CustomAudience extends APINode {
       this.requestField("end_advertiser_name", value);
       return this;
     }
+    public APIRequestGetAdAccounts requestExistingCustomersField () {
+      return this.requestExistingCustomersField(true);
+    }
+    public APIRequestGetAdAccounts requestExistingCustomersField (boolean value) {
+      this.requestField("existing_customers", value);
+      return this;
+    }
+    public APIRequestGetAdAccounts requestExtendedCreditInvoiceGroupField () {
+      return this.requestExtendedCreditInvoiceGroupField(true);
+    }
+    public APIRequestGetAdAccounts requestExtendedCreditInvoiceGroupField (boolean value) {
+      this.requestField("extended_credit_invoice_group", value);
+      return this;
+    }
     public APIRequestGetAdAccounts requestFailedDeliveryChecksField () {
       return this.requestFailedDeliveryChecksField(true);
     }
     public APIRequestGetAdAccounts requestFailedDeliveryChecksField (boolean value) {
       this.requestField("failed_delivery_checks", value);
+      return this;
+    }
+    public APIRequestGetAdAccounts requestFbEntityField () {
+      return this.requestFbEntityField(true);
+    }
+    public APIRequestGetAdAccounts requestFbEntityField (boolean value) {
+      this.requestField("fb_entity", value);
       return this;
     }
     public APIRequestGetAdAccounts requestFundingSourceField () {
@@ -822,6 +1079,13 @@ public class CustomAudience extends APINode {
     }
     public APIRequestGetAdAccounts requestHasMigratedPermissionsField (boolean value) {
       this.requestField("has_migrated_permissions", value);
+      return this;
+    }
+    public APIRequestGetAdAccounts requestHasPageAuthorizedAdaccountField () {
+      return this.requestHasPageAuthorizedAdaccountField(true);
+    }
+    public APIRequestGetAdAccounts requestHasPageAuthorizedAdaccountField (boolean value) {
+      this.requestField("has_page_authorized_adaccount", value);
       return this;
     }
     public APIRequestGetAdAccounts requestIdField () {
@@ -852,6 +1116,13 @@ public class CustomAudience extends APINode {
       this.requestField("is_direct_deals_enabled", value);
       return this;
     }
+    public APIRequestGetAdAccounts requestIsIn3dsAuthorizationEnabledMarketField () {
+      return this.requestIsIn3dsAuthorizationEnabledMarketField(true);
+    }
+    public APIRequestGetAdAccounts requestIsIn3dsAuthorizationEnabledMarketField (boolean value) {
+      this.requestField("is_in_3ds_authorization_enabled_market", value);
+      return this;
+    }
     public APIRequestGetAdAccounts requestIsNotificationsEnabledField () {
       return this.requestIsNotificationsEnabledField(true);
     }
@@ -878,6 +1149,13 @@ public class CustomAudience extends APINode {
     }
     public APIRequestGetAdAccounts requestIsTaxIdRequiredField (boolean value) {
       this.requestField("is_tax_id_required", value);
+      return this;
+    }
+    public APIRequestGetAdAccounts requestLiableAddressField () {
+      return this.requestLiableAddressField(true);
+    }
+    public APIRequestGetAdAccounts requestLiableAddressField (boolean value) {
+      this.requestField("liable_address", value);
       return this;
     }
     public APIRequestGetAdAccounts requestLineNumbersField () {
@@ -915,13 +1193,6 @@ public class CustomAudience extends APINode {
       this.requestField("name", value);
       return this;
     }
-    public APIRequestGetAdAccounts requestNextBillDateField () {
-      return this.requestNextBillDateField(true);
-    }
-    public APIRequestGetAdAccounts requestNextBillDateField (boolean value) {
-      this.requestField("next_bill_date", value);
-      return this;
-    }
     public APIRequestGetAdAccounts requestOffsitePixelsTosAcceptedField () {
       return this.requestOffsitePixelsTosAcceptedField(true);
     }
@@ -934,6 +1205,13 @@ public class CustomAudience extends APINode {
     }
     public APIRequestGetAdAccounts requestOwnerField (boolean value) {
       this.requestField("owner", value);
+      return this;
+    }
+    public APIRequestGetAdAccounts requestOwnerBusinessField () {
+      return this.requestOwnerBusinessField(true);
+    }
+    public APIRequestGetAdAccounts requestOwnerBusinessField (boolean value) {
+      this.requestField("owner_business", value);
       return this;
     }
     public APIRequestGetAdAccounts requestPartnerField () {
@@ -950,11 +1228,11 @@ public class CustomAudience extends APINode {
       this.requestField("rf_spec", value);
       return this;
     }
-    public APIRequestGetAdAccounts requestSalesforceInvoiceGroupIdField () {
-      return this.requestSalesforceInvoiceGroupIdField(true);
+    public APIRequestGetAdAccounts requestSendBillToAddressField () {
+      return this.requestSendBillToAddressField(true);
     }
-    public APIRequestGetAdAccounts requestSalesforceInvoiceGroupIdField (boolean value) {
-      this.requestField("salesforce_invoice_group_id", value);
+    public APIRequestGetAdAccounts requestSendBillToAddressField (boolean value) {
+      this.requestField("send_bill_to_address", value);
       return this;
     }
     public APIRequestGetAdAccounts requestShowCheckoutExperienceField () {
@@ -962,6 +1240,13 @@ public class CustomAudience extends APINode {
     }
     public APIRequestGetAdAccounts requestShowCheckoutExperienceField (boolean value) {
       this.requestField("show_checkout_experience", value);
+      return this;
+    }
+    public APIRequestGetAdAccounts requestSoldToAddressField () {
+      return this.requestSoldToAddressField(true);
+    }
+    public APIRequestGetAdAccounts requestSoldToAddressField (boolean value) {
+      this.requestField("sold_to_address", value);
       return this;
     }
     public APIRequestGetAdAccounts requestSpendCapField () {
@@ -1020,25 +1305,47 @@ public class CustomAudience extends APINode {
       this.requestField("tos_accepted", value);
       return this;
     }
-    public APIRequestGetAdAccounts requestUserRoleField () {
-      return this.requestUserRoleField(true);
+    public APIRequestGetAdAccounts requestUserAccessExpireTimeField () {
+      return this.requestUserAccessExpireTimeField(true);
     }
-    public APIRequestGetAdAccounts requestUserRoleField (boolean value) {
-      this.requestField("user_role", value);
+    public APIRequestGetAdAccounts requestUserAccessExpireTimeField (boolean value) {
+      this.requestField("user_access_expire_time", value);
+      return this;
+    }
+    public APIRequestGetAdAccounts requestUserTasksField () {
+      return this.requestUserTasksField(true);
+    }
+    public APIRequestGetAdAccounts requestUserTasksField (boolean value) {
+      this.requestField("user_tasks", value);
+      return this;
+    }
+    public APIRequestGetAdAccounts requestUserTosAcceptedField () {
+      return this.requestUserTosAcceptedField(true);
+    }
+    public APIRequestGetAdAccounts requestUserTosAcceptedField (boolean value) {
+      this.requestField("user_tos_accepted", value);
+      return this;
+    }
+    public APIRequestGetAdAccounts requestViewableBusinessField () {
+      return this.requestViewableBusinessField(true);
+    }
+    public APIRequestGetAdAccounts requestViewableBusinessField (boolean value) {
+      this.requestField("viewable_business", value);
       return this;
     }
   }
 
-  public static class APIRequestCreateAdAccount extends APIRequest<AdAccount> {
+  public static class APIRequestCreateAdAccount extends APIRequest<CustomAudience> {
 
-    AdAccount lastResponse = null;
+    CustomAudience lastResponse = null;
     @Override
-    public AdAccount getLastResponse() {
+    public CustomAudience getLastResponse() {
       return lastResponse;
     }
     public static final String[] PARAMS = {
       "adaccounts",
       "permissions",
+      "relationship_type",
       "replace",
     };
 
@@ -1046,20 +1353,41 @@ public class CustomAudience extends APINode {
     };
 
     @Override
-    public AdAccount parseResponse(String response) throws APIException {
-      return AdAccount.parseResponse(response, getContext(), this).head();
+    public CustomAudience parseResponse(String response, String header) throws APIException {
+      return CustomAudience.parseResponse(response, getContext(), this, header).head();
     }
 
     @Override
-    public AdAccount execute() throws APIException {
+    public CustomAudience execute() throws APIException {
       return execute(new HashMap<String, Object>());
     }
 
     @Override
-    public AdAccount execute(Map<String, Object> extraParams) throws APIException {
-      lastResponse = parseResponse(executeInternal(extraParams));
+    public CustomAudience execute(Map<String, Object> extraParams) throws APIException {
+      ResponseWrapper rw = executeInternal(extraParams);
+      lastResponse = parseResponse(rw.getBody(), rw.getHeader());
       return lastResponse;
     }
+
+    public ListenableFuture<CustomAudience> executeAsync() throws APIException {
+      return executeAsync(new HashMap<String, Object>());
+    };
+
+    public ListenableFuture<CustomAudience> executeAsync(Map<String, Object> extraParams) throws APIException {
+      return Futures.transform(
+        executeAsyncInternal(extraParams),
+        new Function<ResponseWrapper, CustomAudience>() {
+           public CustomAudience apply(ResponseWrapper result) {
+             try {
+               return APIRequestCreateAdAccount.this.parseResponse(result.getBody(), result.getHeader());
+             } catch (Exception e) {
+               throw new RuntimeException(e);
+             }
+           }
+         },
+         MoreExecutors.directExecutor()
+      );
+    };
 
     public APIRequestCreateAdAccount(String nodeId, APIContext context) {
       super(context, nodeId, "/adaccounts", "POST", Arrays.asList(PARAMS));
@@ -1089,6 +1417,15 @@ public class CustomAudience extends APINode {
 
     public APIRequestCreateAdAccount setPermissions (String permissions) {
       this.setParam("permissions", permissions);
+      return this;
+    }
+
+    public APIRequestCreateAdAccount setRelationshipType (List<String> relationshipType) {
+      this.setParam("relationship_type", relationshipType);
+      return this;
+    }
+    public APIRequestCreateAdAccount setRelationshipType (String relationshipType) {
+      this.setParam("relationship_type", relationshipType);
       return this;
     }
 
@@ -1153,7 +1490,10 @@ public class CustomAudience extends APINode {
 
     public static final String[] FIELDS = {
       "account_id",
+      "ad_active_time",
       "ad_review_feedback",
+      "ad_schedule_end_time",
+      "ad_schedule_start_time",
       "adlabels",
       "adset",
       "adset_id",
@@ -1163,24 +1503,35 @@ public class CustomAudience extends APINode {
       "campaign",
       "campaign_id",
       "configured_status",
+      "conversion_domain",
       "conversion_specs",
       "created_time",
       "creative",
+      "creative_asset_groups_spec",
+      "demolink_hash",
+      "display_sequence",
       "effective_status",
+      "engagement_audience",
+      "failed_delivery_checks",
       "id",
+      "issues_info",
       "last_updated_by_app_id",
       "name",
+      "preview_shareable_link",
+      "priority",
       "recommendations",
       "source_ad",
       "source_ad_id",
       "status",
+      "targeting",
+      "tracking_and_conversion_with_defaults",
       "tracking_specs",
       "updated_time",
     };
 
     @Override
-    public APINodeList<Ad> parseResponse(String response) throws APIException {
-      return Ad.parseResponse(response, getContext(), this);
+    public APINodeList<Ad> parseResponse(String response, String header) throws APIException {
+      return Ad.parseResponse(response, getContext(), this, header);
     }
 
     @Override
@@ -1190,9 +1541,30 @@ public class CustomAudience extends APINode {
 
     @Override
     public APINodeList<Ad> execute(Map<String, Object> extraParams) throws APIException {
-      lastResponse = parseResponse(executeInternal(extraParams));
+      ResponseWrapper rw = executeInternal(extraParams);
+      lastResponse = parseResponse(rw.getBody(),rw.getHeader());
       return lastResponse;
     }
+
+    public ListenableFuture<APINodeList<Ad>> executeAsync() throws APIException {
+      return executeAsync(new HashMap<String, Object>());
+    };
+
+    public ListenableFuture<APINodeList<Ad>> executeAsync(Map<String, Object> extraParams) throws APIException {
+      return Futures.transform(
+        executeAsyncInternal(extraParams),
+        new Function<ResponseWrapper, APINodeList<Ad>>() {
+           public APINodeList<Ad> apply(ResponseWrapper result) {
+             try {
+               return APIRequestGetAds.this.parseResponse(result.getBody(), result.getHeader());
+             } catch (Exception e) {
+               throw new RuntimeException(e);
+             }
+           }
+         },
+         MoreExecutors.directExecutor()
+      );
+    };
 
     public APIRequestGetAds(String nodeId, APIContext context) {
       super(context, nodeId, "/ads", "GET", Arrays.asList(PARAMS));
@@ -1272,11 +1644,32 @@ public class CustomAudience extends APINode {
       this.requestField("account_id", value);
       return this;
     }
+    public APIRequestGetAds requestAdActiveTimeField () {
+      return this.requestAdActiveTimeField(true);
+    }
+    public APIRequestGetAds requestAdActiveTimeField (boolean value) {
+      this.requestField("ad_active_time", value);
+      return this;
+    }
     public APIRequestGetAds requestAdReviewFeedbackField () {
       return this.requestAdReviewFeedbackField(true);
     }
     public APIRequestGetAds requestAdReviewFeedbackField (boolean value) {
       this.requestField("ad_review_feedback", value);
+      return this;
+    }
+    public APIRequestGetAds requestAdScheduleEndTimeField () {
+      return this.requestAdScheduleEndTimeField(true);
+    }
+    public APIRequestGetAds requestAdScheduleEndTimeField (boolean value) {
+      this.requestField("ad_schedule_end_time", value);
+      return this;
+    }
+    public APIRequestGetAds requestAdScheduleStartTimeField () {
+      return this.requestAdScheduleStartTimeField(true);
+    }
+    public APIRequestGetAds requestAdScheduleStartTimeField (boolean value) {
+      this.requestField("ad_schedule_start_time", value);
       return this;
     }
     public APIRequestGetAds requestAdlabelsField () {
@@ -1342,6 +1735,13 @@ public class CustomAudience extends APINode {
       this.requestField("configured_status", value);
       return this;
     }
+    public APIRequestGetAds requestConversionDomainField () {
+      return this.requestConversionDomainField(true);
+    }
+    public APIRequestGetAds requestConversionDomainField (boolean value) {
+      this.requestField("conversion_domain", value);
+      return this;
+    }
     public APIRequestGetAds requestConversionSpecsField () {
       return this.requestConversionSpecsField(true);
     }
@@ -1363,6 +1763,27 @@ public class CustomAudience extends APINode {
       this.requestField("creative", value);
       return this;
     }
+    public APIRequestGetAds requestCreativeAssetGroupsSpecField () {
+      return this.requestCreativeAssetGroupsSpecField(true);
+    }
+    public APIRequestGetAds requestCreativeAssetGroupsSpecField (boolean value) {
+      this.requestField("creative_asset_groups_spec", value);
+      return this;
+    }
+    public APIRequestGetAds requestDemolinkHashField () {
+      return this.requestDemolinkHashField(true);
+    }
+    public APIRequestGetAds requestDemolinkHashField (boolean value) {
+      this.requestField("demolink_hash", value);
+      return this;
+    }
+    public APIRequestGetAds requestDisplaySequenceField () {
+      return this.requestDisplaySequenceField(true);
+    }
+    public APIRequestGetAds requestDisplaySequenceField (boolean value) {
+      this.requestField("display_sequence", value);
+      return this;
+    }
     public APIRequestGetAds requestEffectiveStatusField () {
       return this.requestEffectiveStatusField(true);
     }
@@ -1370,11 +1791,32 @@ public class CustomAudience extends APINode {
       this.requestField("effective_status", value);
       return this;
     }
+    public APIRequestGetAds requestEngagementAudienceField () {
+      return this.requestEngagementAudienceField(true);
+    }
+    public APIRequestGetAds requestEngagementAudienceField (boolean value) {
+      this.requestField("engagement_audience", value);
+      return this;
+    }
+    public APIRequestGetAds requestFailedDeliveryChecksField () {
+      return this.requestFailedDeliveryChecksField(true);
+    }
+    public APIRequestGetAds requestFailedDeliveryChecksField (boolean value) {
+      this.requestField("failed_delivery_checks", value);
+      return this;
+    }
     public APIRequestGetAds requestIdField () {
       return this.requestIdField(true);
     }
     public APIRequestGetAds requestIdField (boolean value) {
       this.requestField("id", value);
+      return this;
+    }
+    public APIRequestGetAds requestIssuesInfoField () {
+      return this.requestIssuesInfoField(true);
+    }
+    public APIRequestGetAds requestIssuesInfoField (boolean value) {
+      this.requestField("issues_info", value);
       return this;
     }
     public APIRequestGetAds requestLastUpdatedByAppIdField () {
@@ -1389,6 +1831,20 @@ public class CustomAudience extends APINode {
     }
     public APIRequestGetAds requestNameField (boolean value) {
       this.requestField("name", value);
+      return this;
+    }
+    public APIRequestGetAds requestPreviewShareableLinkField () {
+      return this.requestPreviewShareableLinkField(true);
+    }
+    public APIRequestGetAds requestPreviewShareableLinkField (boolean value) {
+      this.requestField("preview_shareable_link", value);
+      return this;
+    }
+    public APIRequestGetAds requestPriorityField () {
+      return this.requestPriorityField(true);
+    }
+    public APIRequestGetAds requestPriorityField (boolean value) {
+      this.requestField("priority", value);
       return this;
     }
     public APIRequestGetAds requestRecommendationsField () {
@@ -1419,6 +1875,20 @@ public class CustomAudience extends APINode {
       this.requestField("status", value);
       return this;
     }
+    public APIRequestGetAds requestTargetingField () {
+      return this.requestTargetingField(true);
+    }
+    public APIRequestGetAds requestTargetingField (boolean value) {
+      this.requestField("targeting", value);
+      return this;
+    }
+    public APIRequestGetAds requestTrackingAndConversionWithDefaultsField () {
+      return this.requestTrackingAndConversionWithDefaultsField(true);
+    }
+    public APIRequestGetAds requestTrackingAndConversionWithDefaultsField (boolean value) {
+      this.requestField("tracking_and_conversion_with_defaults", value);
+      return this;
+    }
     public APIRequestGetAds requestTrackingSpecsField () {
       return this.requestTrackingSpecsField(true);
     }
@@ -1435,60 +1905,90 @@ public class CustomAudience extends APINode {
     }
   }
 
-  public static class APIRequestGetPrefills extends APIRequest<CustomAudiencePrefillState> {
+  public static class APIRequestGetSalts extends APIRequest<CustomAudienceSalts> {
 
-    APINodeList<CustomAudiencePrefillState> lastResponse = null;
+    APINodeList<CustomAudienceSalts> lastResponse = null;
     @Override
-    public APINodeList<CustomAudiencePrefillState> getLastResponse() {
+    public APINodeList<CustomAudienceSalts> getLastResponse() {
       return lastResponse;
     }
     public static final String[] PARAMS = {
+      "params",
     };
 
     public static final String[] FIELDS = {
-      "description",
-      "num_added",
-      "status",
+      "app_id",
+      "public_key",
     };
 
     @Override
-    public APINodeList<CustomAudiencePrefillState> parseResponse(String response) throws APIException {
-      return CustomAudiencePrefillState.parseResponse(response, getContext(), this);
+    public APINodeList<CustomAudienceSalts> parseResponse(String response, String header) throws APIException {
+      return CustomAudienceSalts.parseResponse(response, getContext(), this, header);
     }
 
     @Override
-    public APINodeList<CustomAudiencePrefillState> execute() throws APIException {
+    public APINodeList<CustomAudienceSalts> execute() throws APIException {
       return execute(new HashMap<String, Object>());
     }
 
     @Override
-    public APINodeList<CustomAudiencePrefillState> execute(Map<String, Object> extraParams) throws APIException {
-      lastResponse = parseResponse(executeInternal(extraParams));
+    public APINodeList<CustomAudienceSalts> execute(Map<String, Object> extraParams) throws APIException {
+      ResponseWrapper rw = executeInternal(extraParams);
+      lastResponse = parseResponse(rw.getBody(),rw.getHeader());
       return lastResponse;
     }
 
-    public APIRequestGetPrefills(String nodeId, APIContext context) {
-      super(context, nodeId, "/prefills", "GET", Arrays.asList(PARAMS));
+    public ListenableFuture<APINodeList<CustomAudienceSalts>> executeAsync() throws APIException {
+      return executeAsync(new HashMap<String, Object>());
+    };
+
+    public ListenableFuture<APINodeList<CustomAudienceSalts>> executeAsync(Map<String, Object> extraParams) throws APIException {
+      return Futures.transform(
+        executeAsyncInternal(extraParams),
+        new Function<ResponseWrapper, APINodeList<CustomAudienceSalts>>() {
+           public APINodeList<CustomAudienceSalts> apply(ResponseWrapper result) {
+             try {
+               return APIRequestGetSalts.this.parseResponse(result.getBody(), result.getHeader());
+             } catch (Exception e) {
+               throw new RuntimeException(e);
+             }
+           }
+         },
+         MoreExecutors.directExecutor()
+      );
+    };
+
+    public APIRequestGetSalts(String nodeId, APIContext context) {
+      super(context, nodeId, "/salts", "GET", Arrays.asList(PARAMS));
     }
 
     @Override
-    public APIRequestGetPrefills setParam(String param, Object value) {
+    public APIRequestGetSalts setParam(String param, Object value) {
       setParamInternal(param, value);
       return this;
     }
 
     @Override
-    public APIRequestGetPrefills setParams(Map<String, Object> params) {
+    public APIRequestGetSalts setParams(Map<String, Object> params) {
       setParamsInternal(params);
       return this;
     }
 
 
-    public APIRequestGetPrefills requestAllFields () {
+    public APIRequestGetSalts setparamParams (List<String> params) {
+      this.setParam("params", params);
+      return this;
+    }
+    public APIRequestGetSalts setParams (String params) {
+      this.setParam("params", params);
+      return this;
+    }
+
+    public APIRequestGetSalts requestAllFields () {
       return this.requestAllFields(true);
     }
 
-    public APIRequestGetPrefills requestAllFields (boolean value) {
+    public APIRequestGetSalts requestAllFields (boolean value) {
       for (String field : FIELDS) {
         this.requestField(field, value);
       }
@@ -1496,12 +1996,12 @@ public class CustomAudience extends APINode {
     }
 
     @Override
-    public APIRequestGetPrefills requestFields (List<String> fields) {
+    public APIRequestGetSalts requestFields (List<String> fields) {
       return this.requestFields(fields, true);
     }
 
     @Override
-    public APIRequestGetPrefills requestFields (List<String> fields, boolean value) {
+    public APIRequestGetSalts requestFields (List<String> fields, boolean value) {
       for (String field : fields) {
         this.requestField(field, value);
       }
@@ -1509,38 +2009,154 @@ public class CustomAudience extends APINode {
     }
 
     @Override
-    public APIRequestGetPrefills requestField (String field) {
+    public APIRequestGetSalts requestField (String field) {
       this.requestField(field, true);
       return this;
     }
 
     @Override
-    public APIRequestGetPrefills requestField (String field, boolean value) {
+    public APIRequestGetSalts requestField (String field, boolean value) {
       this.requestFieldInternal(field, value);
       return this;
     }
 
-    public APIRequestGetPrefills requestDescriptionField () {
-      return this.requestDescriptionField(true);
+    public APIRequestGetSalts requestAppIdField () {
+      return this.requestAppIdField(true);
     }
-    public APIRequestGetPrefills requestDescriptionField (boolean value) {
-      this.requestField("description", value);
+    public APIRequestGetSalts requestAppIdField (boolean value) {
+      this.requestField("app_id", value);
       return this;
     }
-    public APIRequestGetPrefills requestNumAddedField () {
-      return this.requestNumAddedField(true);
+    public APIRequestGetSalts requestPublicKeyField () {
+      return this.requestPublicKeyField(true);
     }
-    public APIRequestGetPrefills requestNumAddedField (boolean value) {
-      this.requestField("num_added", value);
+    public APIRequestGetSalts requestPublicKeyField (boolean value) {
+      this.requestField("public_key", value);
       return this;
     }
-    public APIRequestGetPrefills requestStatusField () {
-      return this.requestStatusField(true);
+  }
+
+  public static class APIRequestCreateSalt extends APIRequest<CustomAudience> {
+
+    CustomAudience lastResponse = null;
+    @Override
+    public CustomAudience getLastResponse() {
+      return lastResponse;
     }
-    public APIRequestGetPrefills requestStatusField (boolean value) {
-      this.requestField("status", value);
+    public static final String[] PARAMS = {
+      "salt",
+      "valid_from",
+      "valid_to",
+    };
+
+    public static final String[] FIELDS = {
+    };
+
+    @Override
+    public CustomAudience parseResponse(String response, String header) throws APIException {
+      return CustomAudience.parseResponse(response, getContext(), this, header).head();
+    }
+
+    @Override
+    public CustomAudience execute() throws APIException {
+      return execute(new HashMap<String, Object>());
+    }
+
+    @Override
+    public CustomAudience execute(Map<String, Object> extraParams) throws APIException {
+      ResponseWrapper rw = executeInternal(extraParams);
+      lastResponse = parseResponse(rw.getBody(), rw.getHeader());
+      return lastResponse;
+    }
+
+    public ListenableFuture<CustomAudience> executeAsync() throws APIException {
+      return executeAsync(new HashMap<String, Object>());
+    };
+
+    public ListenableFuture<CustomAudience> executeAsync(Map<String, Object> extraParams) throws APIException {
+      return Futures.transform(
+        executeAsyncInternal(extraParams),
+        new Function<ResponseWrapper, CustomAudience>() {
+           public CustomAudience apply(ResponseWrapper result) {
+             try {
+               return APIRequestCreateSalt.this.parseResponse(result.getBody(), result.getHeader());
+             } catch (Exception e) {
+               throw new RuntimeException(e);
+             }
+           }
+         },
+         MoreExecutors.directExecutor()
+      );
+    };
+
+    public APIRequestCreateSalt(String nodeId, APIContext context) {
+      super(context, nodeId, "/salts", "POST", Arrays.asList(PARAMS));
+    }
+
+    @Override
+    public APIRequestCreateSalt setParam(String param, Object value) {
+      setParamInternal(param, value);
       return this;
     }
+
+    @Override
+    public APIRequestCreateSalt setParams(Map<String, Object> params) {
+      setParamsInternal(params);
+      return this;
+    }
+
+
+    public APIRequestCreateSalt setSalt (String salt) {
+      this.setParam("salt", salt);
+      return this;
+    }
+
+    public APIRequestCreateSalt setValidFrom (String validFrom) {
+      this.setParam("valid_from", validFrom);
+      return this;
+    }
+
+    public APIRequestCreateSalt setValidTo (String validTo) {
+      this.setParam("valid_to", validTo);
+      return this;
+    }
+
+    public APIRequestCreateSalt requestAllFields () {
+      return this.requestAllFields(true);
+    }
+
+    public APIRequestCreateSalt requestAllFields (boolean value) {
+      for (String field : FIELDS) {
+        this.requestField(field, value);
+      }
+      return this;
+    }
+
+    @Override
+    public APIRequestCreateSalt requestFields (List<String> fields) {
+      return this.requestFields(fields, true);
+    }
+
+    @Override
+    public APIRequestCreateSalt requestFields (List<String> fields, boolean value) {
+      for (String field : fields) {
+        this.requestField(field, value);
+      }
+      return this;
+    }
+
+    @Override
+    public APIRequestCreateSalt requestField (String field) {
+      this.requestField(field, true);
+      return this;
+    }
+
+    @Override
+    public APIRequestCreateSalt requestField (String field, boolean value) {
+      this.requestFieldInternal(field, value);
+      return this;
+    }
+
   }
 
   public static class APIRequestGetSessions extends APIRequest<CustomAudienceSession> {
@@ -1566,8 +2182,8 @@ public class CustomAudience extends APINode {
     };
 
     @Override
-    public APINodeList<CustomAudienceSession> parseResponse(String response) throws APIException {
-      return CustomAudienceSession.parseResponse(response, getContext(), this);
+    public APINodeList<CustomAudienceSession> parseResponse(String response, String header) throws APIException {
+      return CustomAudienceSession.parseResponse(response, getContext(), this, header);
     }
 
     @Override
@@ -1577,9 +2193,30 @@ public class CustomAudience extends APINode {
 
     @Override
     public APINodeList<CustomAudienceSession> execute(Map<String, Object> extraParams) throws APIException {
-      lastResponse = parseResponse(executeInternal(extraParams));
+      ResponseWrapper rw = executeInternal(extraParams);
+      lastResponse = parseResponse(rw.getBody(),rw.getHeader());
       return lastResponse;
     }
+
+    public ListenableFuture<APINodeList<CustomAudienceSession>> executeAsync() throws APIException {
+      return executeAsync(new HashMap<String, Object>());
+    };
+
+    public ListenableFuture<APINodeList<CustomAudienceSession>> executeAsync(Map<String, Object> extraParams) throws APIException {
+      return Futures.transform(
+        executeAsyncInternal(extraParams),
+        new Function<ResponseWrapper, APINodeList<CustomAudienceSession>>() {
+           public APINodeList<CustomAudienceSession> apply(ResponseWrapper result) {
+             try {
+               return APIRequestGetSessions.this.parseResponse(result.getBody(), result.getHeader());
+             } catch (Exception e) {
+               throw new RuntimeException(e);
+             }
+           }
+         },
+         MoreExecutors.directExecutor()
+      );
+    };
 
     public APIRequestGetSessions(String nodeId, APIContext context) {
       super(context, nodeId, "/sessions", "GET", Arrays.asList(PARAMS));
@@ -1701,6 +2338,151 @@ public class CustomAudience extends APINode {
     }
   }
 
+  public static class APIRequestGetShareDAccountInfo extends APIRequest<CustomAudiencesharedAccountInfo> {
+
+    APINodeList<CustomAudiencesharedAccountInfo> lastResponse = null;
+    @Override
+    public APINodeList<CustomAudiencesharedAccountInfo> getLastResponse() {
+      return lastResponse;
+    }
+    public static final String[] PARAMS = {
+    };
+
+    public static final String[] FIELDS = {
+      "account_id",
+      "account_name",
+      "business_id",
+      "business_name",
+      "sharing_status",
+    };
+
+    @Override
+    public APINodeList<CustomAudiencesharedAccountInfo> parseResponse(String response, String header) throws APIException {
+      return CustomAudiencesharedAccountInfo.parseResponse(response, getContext(), this, header);
+    }
+
+    @Override
+    public APINodeList<CustomAudiencesharedAccountInfo> execute() throws APIException {
+      return execute(new HashMap<String, Object>());
+    }
+
+    @Override
+    public APINodeList<CustomAudiencesharedAccountInfo> execute(Map<String, Object> extraParams) throws APIException {
+      ResponseWrapper rw = executeInternal(extraParams);
+      lastResponse = parseResponse(rw.getBody(),rw.getHeader());
+      return lastResponse;
+    }
+
+    public ListenableFuture<APINodeList<CustomAudiencesharedAccountInfo>> executeAsync() throws APIException {
+      return executeAsync(new HashMap<String, Object>());
+    };
+
+    public ListenableFuture<APINodeList<CustomAudiencesharedAccountInfo>> executeAsync(Map<String, Object> extraParams) throws APIException {
+      return Futures.transform(
+        executeAsyncInternal(extraParams),
+        new Function<ResponseWrapper, APINodeList<CustomAudiencesharedAccountInfo>>() {
+           public APINodeList<CustomAudiencesharedAccountInfo> apply(ResponseWrapper result) {
+             try {
+               return APIRequestGetShareDAccountInfo.this.parseResponse(result.getBody(), result.getHeader());
+             } catch (Exception e) {
+               throw new RuntimeException(e);
+             }
+           }
+         },
+         MoreExecutors.directExecutor()
+      );
+    };
+
+    public APIRequestGetShareDAccountInfo(String nodeId, APIContext context) {
+      super(context, nodeId, "/shared_account_info", "GET", Arrays.asList(PARAMS));
+    }
+
+    @Override
+    public APIRequestGetShareDAccountInfo setParam(String param, Object value) {
+      setParamInternal(param, value);
+      return this;
+    }
+
+    @Override
+    public APIRequestGetShareDAccountInfo setParams(Map<String, Object> params) {
+      setParamsInternal(params);
+      return this;
+    }
+
+
+    public APIRequestGetShareDAccountInfo requestAllFields () {
+      return this.requestAllFields(true);
+    }
+
+    public APIRequestGetShareDAccountInfo requestAllFields (boolean value) {
+      for (String field : FIELDS) {
+        this.requestField(field, value);
+      }
+      return this;
+    }
+
+    @Override
+    public APIRequestGetShareDAccountInfo requestFields (List<String> fields) {
+      return this.requestFields(fields, true);
+    }
+
+    @Override
+    public APIRequestGetShareDAccountInfo requestFields (List<String> fields, boolean value) {
+      for (String field : fields) {
+        this.requestField(field, value);
+      }
+      return this;
+    }
+
+    @Override
+    public APIRequestGetShareDAccountInfo requestField (String field) {
+      this.requestField(field, true);
+      return this;
+    }
+
+    @Override
+    public APIRequestGetShareDAccountInfo requestField (String field, boolean value) {
+      this.requestFieldInternal(field, value);
+      return this;
+    }
+
+    public APIRequestGetShareDAccountInfo requestAccountIdField () {
+      return this.requestAccountIdField(true);
+    }
+    public APIRequestGetShareDAccountInfo requestAccountIdField (boolean value) {
+      this.requestField("account_id", value);
+      return this;
+    }
+    public APIRequestGetShareDAccountInfo requestAccountNameField () {
+      return this.requestAccountNameField(true);
+    }
+    public APIRequestGetShareDAccountInfo requestAccountNameField (boolean value) {
+      this.requestField("account_name", value);
+      return this;
+    }
+    public APIRequestGetShareDAccountInfo requestBusinessIdField () {
+      return this.requestBusinessIdField(true);
+    }
+    public APIRequestGetShareDAccountInfo requestBusinessIdField (boolean value) {
+      this.requestField("business_id", value);
+      return this;
+    }
+    public APIRequestGetShareDAccountInfo requestBusinessNameField () {
+      return this.requestBusinessNameField(true);
+    }
+    public APIRequestGetShareDAccountInfo requestBusinessNameField (boolean value) {
+      this.requestField("business_name", value);
+      return this;
+    }
+    public APIRequestGetShareDAccountInfo requestSharingStatusField () {
+      return this.requestSharingStatusField(true);
+    }
+    public APIRequestGetShareDAccountInfo requestSharingStatusField (boolean value) {
+      this.requestField("sharing_status", value);
+      return this;
+    }
+  }
+
   public static class APIRequestDeleteUsers extends APIRequest<APINode> {
 
     APINodeList<APINode> lastResponse = null;
@@ -1718,8 +2500,8 @@ public class CustomAudience extends APINode {
     };
 
     @Override
-    public APINodeList<APINode> parseResponse(String response) throws APIException {
-      return APINode.parseResponse(response, getContext(), this);
+    public APINodeList<APINode> parseResponse(String response, String header) throws APIException {
+      return APINode.parseResponse(response, getContext(), this, header);
     }
 
     @Override
@@ -1729,9 +2511,30 @@ public class CustomAudience extends APINode {
 
     @Override
     public APINodeList<APINode> execute(Map<String, Object> extraParams) throws APIException {
-      lastResponse = parseResponse(executeInternal(extraParams));
+      ResponseWrapper rw = executeInternal(extraParams);
+      lastResponse = parseResponse(rw.getBody(),rw.getHeader());
       return lastResponse;
     }
+
+    public ListenableFuture<APINodeList<APINode>> executeAsync() throws APIException {
+      return executeAsync(new HashMap<String, Object>());
+    };
+
+    public ListenableFuture<APINodeList<APINode>> executeAsync(Map<String, Object> extraParams) throws APIException {
+      return Futures.transform(
+        executeAsyncInternal(extraParams),
+        new Function<ResponseWrapper, APINodeList<APINode>>() {
+           public APINodeList<APINode> apply(ResponseWrapper result) {
+             try {
+               return APIRequestDeleteUsers.this.parseResponse(result.getBody(), result.getHeader());
+             } catch (Exception e) {
+               throw new RuntimeException(e);
+             }
+           }
+         },
+         MoreExecutors.directExecutor()
+      );
+    };
 
     public APIRequestDeleteUsers(String nodeId, APIContext context) {
       super(context, nodeId, "/users", "DELETE", Arrays.asList(PARAMS));
@@ -1811,11 +2614,11 @@ public class CustomAudience extends APINode {
 
   }
 
-  public static class APIRequestCreateUser extends APIRequest<User> {
+  public static class APIRequestCreateUser extends APIRequest<CustomAudience> {
 
-    User lastResponse = null;
+    CustomAudience lastResponse = null;
     @Override
-    public User getLastResponse() {
+    public CustomAudience getLastResponse() {
       return lastResponse;
     }
     public static final String[] PARAMS = {
@@ -1828,20 +2631,41 @@ public class CustomAudience extends APINode {
     };
 
     @Override
-    public User parseResponse(String response) throws APIException {
-      return User.parseResponse(response, getContext(), this).head();
+    public CustomAudience parseResponse(String response, String header) throws APIException {
+      return CustomAudience.parseResponse(response, getContext(), this, header).head();
     }
 
     @Override
-    public User execute() throws APIException {
+    public CustomAudience execute() throws APIException {
       return execute(new HashMap<String, Object>());
     }
 
     @Override
-    public User execute(Map<String, Object> extraParams) throws APIException {
-      lastResponse = parseResponse(executeInternal(extraParams));
+    public CustomAudience execute(Map<String, Object> extraParams) throws APIException {
+      ResponseWrapper rw = executeInternal(extraParams);
+      lastResponse = parseResponse(rw.getBody(), rw.getHeader());
       return lastResponse;
     }
+
+    public ListenableFuture<CustomAudience> executeAsync() throws APIException {
+      return executeAsync(new HashMap<String, Object>());
+    };
+
+    public ListenableFuture<CustomAudience> executeAsync(Map<String, Object> extraParams) throws APIException {
+      return Futures.transform(
+        executeAsyncInternal(extraParams),
+        new Function<ResponseWrapper, CustomAudience>() {
+           public CustomAudience apply(ResponseWrapper result) {
+             try {
+               return APIRequestCreateUser.this.parseResponse(result.getBody(), result.getHeader());
+             } catch (Exception e) {
+               throw new RuntimeException(e);
+             }
+           }
+         },
+         MoreExecutors.directExecutor()
+      );
+    };
 
     public APIRequestCreateUser(String nodeId, APIContext context) {
       super(context, nodeId, "/users", "POST", Arrays.asList(PARAMS));
@@ -1921,6 +2745,137 @@ public class CustomAudience extends APINode {
 
   }
 
+  public static class APIRequestCreateUsersReplace extends APIRequest<CustomAudience> {
+
+    CustomAudience lastResponse = null;
+    @Override
+    public CustomAudience getLastResponse() {
+      return lastResponse;
+    }
+    public static final String[] PARAMS = {
+      "namespace",
+      "payload",
+      "session",
+    };
+
+    public static final String[] FIELDS = {
+    };
+
+    @Override
+    public CustomAudience parseResponse(String response, String header) throws APIException {
+      return CustomAudience.parseResponse(response, getContext(), this, header).head();
+    }
+
+    @Override
+    public CustomAudience execute() throws APIException {
+      return execute(new HashMap<String, Object>());
+    }
+
+    @Override
+    public CustomAudience execute(Map<String, Object> extraParams) throws APIException {
+      ResponseWrapper rw = executeInternal(extraParams);
+      lastResponse = parseResponse(rw.getBody(), rw.getHeader());
+      return lastResponse;
+    }
+
+    public ListenableFuture<CustomAudience> executeAsync() throws APIException {
+      return executeAsync(new HashMap<String, Object>());
+    };
+
+    public ListenableFuture<CustomAudience> executeAsync(Map<String, Object> extraParams) throws APIException {
+      return Futures.transform(
+        executeAsyncInternal(extraParams),
+        new Function<ResponseWrapper, CustomAudience>() {
+           public CustomAudience apply(ResponseWrapper result) {
+             try {
+               return APIRequestCreateUsersReplace.this.parseResponse(result.getBody(), result.getHeader());
+             } catch (Exception e) {
+               throw new RuntimeException(e);
+             }
+           }
+         },
+         MoreExecutors.directExecutor()
+      );
+    };
+
+    public APIRequestCreateUsersReplace(String nodeId, APIContext context) {
+      super(context, nodeId, "/usersreplace", "POST", Arrays.asList(PARAMS));
+    }
+
+    @Override
+    public APIRequestCreateUsersReplace setParam(String param, Object value) {
+      setParamInternal(param, value);
+      return this;
+    }
+
+    @Override
+    public APIRequestCreateUsersReplace setParams(Map<String, Object> params) {
+      setParamsInternal(params);
+      return this;
+    }
+
+
+    public APIRequestCreateUsersReplace setNamespace (String namespace) {
+      this.setParam("namespace", namespace);
+      return this;
+    }
+
+    public APIRequestCreateUsersReplace setPayload (Object payload) {
+      this.setParam("payload", payload);
+      return this;
+    }
+    public APIRequestCreateUsersReplace setPayload (String payload) {
+      this.setParam("payload", payload);
+      return this;
+    }
+
+    public APIRequestCreateUsersReplace setSession (Object session) {
+      this.setParam("session", session);
+      return this;
+    }
+    public APIRequestCreateUsersReplace setSession (String session) {
+      this.setParam("session", session);
+      return this;
+    }
+
+    public APIRequestCreateUsersReplace requestAllFields () {
+      return this.requestAllFields(true);
+    }
+
+    public APIRequestCreateUsersReplace requestAllFields (boolean value) {
+      for (String field : FIELDS) {
+        this.requestField(field, value);
+      }
+      return this;
+    }
+
+    @Override
+    public APIRequestCreateUsersReplace requestFields (List<String> fields) {
+      return this.requestFields(fields, true);
+    }
+
+    @Override
+    public APIRequestCreateUsersReplace requestFields (List<String> fields, boolean value) {
+      for (String field : fields) {
+        this.requestField(field, value);
+      }
+      return this;
+    }
+
+    @Override
+    public APIRequestCreateUsersReplace requestField (String field) {
+      this.requestField(field, true);
+      return this;
+    }
+
+    @Override
+    public APIRequestCreateUsersReplace requestField (String field, boolean value) {
+      this.requestFieldInternal(field, value);
+      return this;
+    }
+
+  }
+
   public static class APIRequestDelete extends APIRequest<APINode> {
 
     APINode lastResponse = null;
@@ -1935,8 +2890,8 @@ public class CustomAudience extends APINode {
     };
 
     @Override
-    public APINode parseResponse(String response) throws APIException {
-      return APINode.parseResponse(response, getContext(), this).head();
+    public APINode parseResponse(String response, String header) throws APIException {
+      return APINode.parseResponse(response, getContext(), this, header).head();
     }
 
     @Override
@@ -1946,9 +2901,30 @@ public class CustomAudience extends APINode {
 
     @Override
     public APINode execute(Map<String, Object> extraParams) throws APIException {
-      lastResponse = parseResponse(executeInternal(extraParams));
+      ResponseWrapper rw = executeInternal(extraParams);
+      lastResponse = parseResponse(rw.getBody(), rw.getHeader());
       return lastResponse;
     }
+
+    public ListenableFuture<APINode> executeAsync() throws APIException {
+      return executeAsync(new HashMap<String, Object>());
+    };
+
+    public ListenableFuture<APINode> executeAsync(Map<String, Object> extraParams) throws APIException {
+      return Futures.transform(
+        executeAsyncInternal(extraParams),
+        new Function<ResponseWrapper, APINode>() {
+           public APINode apply(ResponseWrapper result) {
+             try {
+               return APIRequestDelete.this.parseResponse(result.getBody(), result.getHeader());
+             } catch (Exception e) {
+               throw new RuntimeException(e);
+             }
+           }
+         },
+         MoreExecutors.directExecutor()
+      );
+    };
 
     public APIRequestDelete(String nodeId, APIContext context) {
       super(context, nodeId, "/", "DELETE", Arrays.asList(PARAMS));
@@ -2013,27 +2989,46 @@ public class CustomAudience extends APINode {
       return lastResponse;
     }
     public static final String[] PARAMS = {
+      "ad_account_id",
+      "target_countries",
     };
 
     public static final String[] FIELDS = {
       "account_id",
-      "approximate_count",
+      "approximate_count_lower_bound",
+      "approximate_count_upper_bound",
+      "customer_file_source",
       "data_source",
+      "data_source_types",
+      "datafile_custom_audience_uploading_status",
+      "delete_time",
       "delivery_status",
       "description",
+      "excluded_custom_audiences",
       "external_event_source",
+      "household_audience",
       "id",
+      "included_custom_audiences",
+      "is_household",
+      "is_snapshot",
       "is_value_based",
       "lookalike_audience_ids",
       "lookalike_spec",
       "name",
       "operation_status",
       "opt_out_link",
+      "owner_business",
+      "page_deletion_marked_delete_time",
       "permission_for_actions",
       "pixel_id",
+      "regulated_audience_spec",
       "retention_days",
+      "rev_share_policy_id",
       "rule",
       "rule_aggregation",
+      "rule_v2",
+      "seed_audience",
+      "sharing_status",
       "subtype",
       "time_content_updated",
       "time_created",
@@ -2041,8 +3036,8 @@ public class CustomAudience extends APINode {
     };
 
     @Override
-    public CustomAudience parseResponse(String response) throws APIException {
-      return CustomAudience.parseResponse(response, getContext(), this).head();
+    public CustomAudience parseResponse(String response, String header) throws APIException {
+      return CustomAudience.parseResponse(response, getContext(), this, header).head();
     }
 
     @Override
@@ -2052,9 +3047,30 @@ public class CustomAudience extends APINode {
 
     @Override
     public CustomAudience execute(Map<String, Object> extraParams) throws APIException {
-      lastResponse = parseResponse(executeInternal(extraParams));
+      ResponseWrapper rw = executeInternal(extraParams);
+      lastResponse = parseResponse(rw.getBody(), rw.getHeader());
       return lastResponse;
     }
+
+    public ListenableFuture<CustomAudience> executeAsync() throws APIException {
+      return executeAsync(new HashMap<String, Object>());
+    };
+
+    public ListenableFuture<CustomAudience> executeAsync(Map<String, Object> extraParams) throws APIException {
+      return Futures.transform(
+        executeAsyncInternal(extraParams),
+        new Function<ResponseWrapper, CustomAudience>() {
+           public CustomAudience apply(ResponseWrapper result) {
+             try {
+               return APIRequestGet.this.parseResponse(result.getBody(), result.getHeader());
+             } catch (Exception e) {
+               throw new RuntimeException(e);
+             }
+           }
+         },
+         MoreExecutors.directExecutor()
+      );
+    };
 
     public APIRequestGet(String nodeId, APIContext context) {
       super(context, nodeId, "/", "GET", Arrays.asList(PARAMS));
@@ -2072,6 +3088,20 @@ public class CustomAudience extends APINode {
       return this;
     }
 
+
+    public APIRequestGet setAdAccountId (String adAccountId) {
+      this.setParam("ad_account_id", adAccountId);
+      return this;
+    }
+
+    public APIRequestGet setTargetCountries (List<String> targetCountries) {
+      this.setParam("target_countries", targetCountries);
+      return this;
+    }
+    public APIRequestGet setTargetCountries (String targetCountries) {
+      this.setParam("target_countries", targetCountries);
+      return this;
+    }
 
     public APIRequestGet requestAllFields () {
       return this.requestAllFields(true);
@@ -2116,11 +3146,25 @@ public class CustomAudience extends APINode {
       this.requestField("account_id", value);
       return this;
     }
-    public APIRequestGet requestApproximateCountField () {
-      return this.requestApproximateCountField(true);
+    public APIRequestGet requestApproximateCountLowerBoundField () {
+      return this.requestApproximateCountLowerBoundField(true);
     }
-    public APIRequestGet requestApproximateCountField (boolean value) {
-      this.requestField("approximate_count", value);
+    public APIRequestGet requestApproximateCountLowerBoundField (boolean value) {
+      this.requestField("approximate_count_lower_bound", value);
+      return this;
+    }
+    public APIRequestGet requestApproximateCountUpperBoundField () {
+      return this.requestApproximateCountUpperBoundField(true);
+    }
+    public APIRequestGet requestApproximateCountUpperBoundField (boolean value) {
+      this.requestField("approximate_count_upper_bound", value);
+      return this;
+    }
+    public APIRequestGet requestCustomerFileSourceField () {
+      return this.requestCustomerFileSourceField(true);
+    }
+    public APIRequestGet requestCustomerFileSourceField (boolean value) {
+      this.requestField("customer_file_source", value);
       return this;
     }
     public APIRequestGet requestDataSourceField () {
@@ -2128,6 +3172,27 @@ public class CustomAudience extends APINode {
     }
     public APIRequestGet requestDataSourceField (boolean value) {
       this.requestField("data_source", value);
+      return this;
+    }
+    public APIRequestGet requestDataSourceTypesField () {
+      return this.requestDataSourceTypesField(true);
+    }
+    public APIRequestGet requestDataSourceTypesField (boolean value) {
+      this.requestField("data_source_types", value);
+      return this;
+    }
+    public APIRequestGet requestDatafileCustomAudienceUploadingStatusField () {
+      return this.requestDatafileCustomAudienceUploadingStatusField(true);
+    }
+    public APIRequestGet requestDatafileCustomAudienceUploadingStatusField (boolean value) {
+      this.requestField("datafile_custom_audience_uploading_status", value);
+      return this;
+    }
+    public APIRequestGet requestDeleteTimeField () {
+      return this.requestDeleteTimeField(true);
+    }
+    public APIRequestGet requestDeleteTimeField (boolean value) {
+      this.requestField("delete_time", value);
       return this;
     }
     public APIRequestGet requestDeliveryStatusField () {
@@ -2144,6 +3209,13 @@ public class CustomAudience extends APINode {
       this.requestField("description", value);
       return this;
     }
+    public APIRequestGet requestExcludedCustomAudiencesField () {
+      return this.requestExcludedCustomAudiencesField(true);
+    }
+    public APIRequestGet requestExcludedCustomAudiencesField (boolean value) {
+      this.requestField("excluded_custom_audiences", value);
+      return this;
+    }
     public APIRequestGet requestExternalEventSourceField () {
       return this.requestExternalEventSourceField(true);
     }
@@ -2151,11 +3223,39 @@ public class CustomAudience extends APINode {
       this.requestField("external_event_source", value);
       return this;
     }
+    public APIRequestGet requestHouseholdAudienceField () {
+      return this.requestHouseholdAudienceField(true);
+    }
+    public APIRequestGet requestHouseholdAudienceField (boolean value) {
+      this.requestField("household_audience", value);
+      return this;
+    }
     public APIRequestGet requestIdField () {
       return this.requestIdField(true);
     }
     public APIRequestGet requestIdField (boolean value) {
       this.requestField("id", value);
+      return this;
+    }
+    public APIRequestGet requestIncludedCustomAudiencesField () {
+      return this.requestIncludedCustomAudiencesField(true);
+    }
+    public APIRequestGet requestIncludedCustomAudiencesField (boolean value) {
+      this.requestField("included_custom_audiences", value);
+      return this;
+    }
+    public APIRequestGet requestIsHouseholdField () {
+      return this.requestIsHouseholdField(true);
+    }
+    public APIRequestGet requestIsHouseholdField (boolean value) {
+      this.requestField("is_household", value);
+      return this;
+    }
+    public APIRequestGet requestIsSnapshotField () {
+      return this.requestIsSnapshotField(true);
+    }
+    public APIRequestGet requestIsSnapshotField (boolean value) {
+      this.requestField("is_snapshot", value);
       return this;
     }
     public APIRequestGet requestIsValueBasedField () {
@@ -2200,6 +3300,20 @@ public class CustomAudience extends APINode {
       this.requestField("opt_out_link", value);
       return this;
     }
+    public APIRequestGet requestOwnerBusinessField () {
+      return this.requestOwnerBusinessField(true);
+    }
+    public APIRequestGet requestOwnerBusinessField (boolean value) {
+      this.requestField("owner_business", value);
+      return this;
+    }
+    public APIRequestGet requestPageDeletionMarkedDeleteTimeField () {
+      return this.requestPageDeletionMarkedDeleteTimeField(true);
+    }
+    public APIRequestGet requestPageDeletionMarkedDeleteTimeField (boolean value) {
+      this.requestField("page_deletion_marked_delete_time", value);
+      return this;
+    }
     public APIRequestGet requestPermissionForActionsField () {
       return this.requestPermissionForActionsField(true);
     }
@@ -2214,11 +3328,25 @@ public class CustomAudience extends APINode {
       this.requestField("pixel_id", value);
       return this;
     }
+    public APIRequestGet requestRegulatedAudienceSpecField () {
+      return this.requestRegulatedAudienceSpecField(true);
+    }
+    public APIRequestGet requestRegulatedAudienceSpecField (boolean value) {
+      this.requestField("regulated_audience_spec", value);
+      return this;
+    }
     public APIRequestGet requestRetentionDaysField () {
       return this.requestRetentionDaysField(true);
     }
     public APIRequestGet requestRetentionDaysField (boolean value) {
       this.requestField("retention_days", value);
+      return this;
+    }
+    public APIRequestGet requestRevSharePolicyIdField () {
+      return this.requestRevSharePolicyIdField(true);
+    }
+    public APIRequestGet requestRevSharePolicyIdField (boolean value) {
+      this.requestField("rev_share_policy_id", value);
       return this;
     }
     public APIRequestGet requestRuleField () {
@@ -2233,6 +3361,27 @@ public class CustomAudience extends APINode {
     }
     public APIRequestGet requestRuleAggregationField (boolean value) {
       this.requestField("rule_aggregation", value);
+      return this;
+    }
+    public APIRequestGet requestRuleV2Field () {
+      return this.requestRuleV2Field(true);
+    }
+    public APIRequestGet requestRuleV2Field (boolean value) {
+      this.requestField("rule_v2", value);
+      return this;
+    }
+    public APIRequestGet requestSeedAudienceField () {
+      return this.requestSeedAudienceField(true);
+    }
+    public APIRequestGet requestSeedAudienceField (boolean value) {
+      this.requestField("seed_audience", value);
+      return this;
+    }
+    public APIRequestGet requestSharingStatusField () {
+      return this.requestSharingStatusField(true);
+    }
+    public APIRequestGet requestSharingStatusField (boolean value) {
+      this.requestField("sharing_status", value);
       return this;
     }
     public APIRequestGet requestSubtypeField () {
@@ -2276,23 +3425,33 @@ public class CustomAudience extends APINode {
       "allowed_domains",
       "claim_objective",
       "content_type",
+      "countries",
+      "customer_file_source",
       "description",
+      "enable_fetch_or_create",
       "event_source_group",
+      "event_sources",
+      "exclusions",
+      "inclusions",
       "lookalike_spec",
       "name",
       "opt_out_link",
+      "parent_audience_id",
       "product_set_id",
       "retention_days",
+      "rev_share_policy_id",
       "rule",
       "rule_aggregation",
+      "tags",
+      "use_in_campaigns",
     };
 
     public static final String[] FIELDS = {
     };
 
     @Override
-    public CustomAudience parseResponse(String response) throws APIException {
-      return CustomAudience.parseResponse(response, getContext(), this).head();
+    public CustomAudience parseResponse(String response, String header) throws APIException {
+      return CustomAudience.parseResponse(response, getContext(), this, header).head();
     }
 
     @Override
@@ -2302,9 +3461,30 @@ public class CustomAudience extends APINode {
 
     @Override
     public CustomAudience execute(Map<String, Object> extraParams) throws APIException {
-      lastResponse = parseResponse(executeInternal(extraParams));
+      ResponseWrapper rw = executeInternal(extraParams);
+      lastResponse = parseResponse(rw.getBody(), rw.getHeader());
       return lastResponse;
     }
+
+    public ListenableFuture<CustomAudience> executeAsync() throws APIException {
+      return executeAsync(new HashMap<String, Object>());
+    };
+
+    public ListenableFuture<CustomAudience> executeAsync(Map<String, Object> extraParams) throws APIException {
+      return Futures.transform(
+        executeAsyncInternal(extraParams),
+        new Function<ResponseWrapper, CustomAudience>() {
+           public CustomAudience apply(ResponseWrapper result) {
+             try {
+               return APIRequestUpdate.this.parseResponse(result.getBody(), result.getHeader());
+             } catch (Exception e) {
+               throw new RuntimeException(e);
+             }
+           }
+         },
+         MoreExecutors.directExecutor()
+      );
+    };
 
     public APIRequestUpdate(String nodeId, APIContext context) {
       super(context, nodeId, "/", "POST", Arrays.asList(PARAMS));
@@ -2350,13 +3530,63 @@ public class CustomAudience extends APINode {
       return this;
     }
 
+    public APIRequestUpdate setCountries (String countries) {
+      this.setParam("countries", countries);
+      return this;
+    }
+
+    public APIRequestUpdate setCustomerFileSource (CustomAudience.EnumCustomerFileSource customerFileSource) {
+      this.setParam("customer_file_source", customerFileSource);
+      return this;
+    }
+    public APIRequestUpdate setCustomerFileSource (String customerFileSource) {
+      this.setParam("customer_file_source", customerFileSource);
+      return this;
+    }
+
     public APIRequestUpdate setDescription (String description) {
       this.setParam("description", description);
       return this;
     }
 
+    public APIRequestUpdate setEnableFetchOrCreate (Boolean enableFetchOrCreate) {
+      this.setParam("enable_fetch_or_create", enableFetchOrCreate);
+      return this;
+    }
+    public APIRequestUpdate setEnableFetchOrCreate (String enableFetchOrCreate) {
+      this.setParam("enable_fetch_or_create", enableFetchOrCreate);
+      return this;
+    }
+
     public APIRequestUpdate setEventSourceGroup (String eventSourceGroup) {
       this.setParam("event_source_group", eventSourceGroup);
+      return this;
+    }
+
+    public APIRequestUpdate setEventSources (List<Map<String, String>> eventSources) {
+      this.setParam("event_sources", eventSources);
+      return this;
+    }
+    public APIRequestUpdate setEventSources (String eventSources) {
+      this.setParam("event_sources", eventSources);
+      return this;
+    }
+
+    public APIRequestUpdate setExclusions (List<Object> exclusions) {
+      this.setParam("exclusions", exclusions);
+      return this;
+    }
+    public APIRequestUpdate setExclusions (String exclusions) {
+      this.setParam("exclusions", exclusions);
+      return this;
+    }
+
+    public APIRequestUpdate setInclusions (List<Object> inclusions) {
+      this.setParam("inclusions", inclusions);
+      return this;
+    }
+    public APIRequestUpdate setInclusions (String inclusions) {
+      this.setParam("inclusions", inclusions);
       return this;
     }
 
@@ -2375,6 +3605,15 @@ public class CustomAudience extends APINode {
       return this;
     }
 
+    public APIRequestUpdate setParentAudienceId (Long parentAudienceId) {
+      this.setParam("parent_audience_id", parentAudienceId);
+      return this;
+    }
+    public APIRequestUpdate setParentAudienceId (String parentAudienceId) {
+      this.setParam("parent_audience_id", parentAudienceId);
+      return this;
+    }
+
     public APIRequestUpdate setProductSetId (String productSetId) {
       this.setParam("product_set_id", productSetId);
       return this;
@@ -2389,6 +3628,15 @@ public class CustomAudience extends APINode {
       return this;
     }
 
+    public APIRequestUpdate setRevSharePolicyId (Long revSharePolicyId) {
+      this.setParam("rev_share_policy_id", revSharePolicyId);
+      return this;
+    }
+    public APIRequestUpdate setRevSharePolicyId (String revSharePolicyId) {
+      this.setParam("rev_share_policy_id", revSharePolicyId);
+      return this;
+    }
+
     public APIRequestUpdate setRule (String rule) {
       this.setParam("rule", rule);
       return this;
@@ -2396,6 +3644,24 @@ public class CustomAudience extends APINode {
 
     public APIRequestUpdate setRuleAggregation (String ruleAggregation) {
       this.setParam("rule_aggregation", ruleAggregation);
+      return this;
+    }
+
+    public APIRequestUpdate setTags (List<String> tags) {
+      this.setParam("tags", tags);
+      return this;
+    }
+    public APIRequestUpdate setTags (String tags) {
+      this.setParam("tags", tags);
+      return this;
+    }
+
+    public APIRequestUpdate setUseInCampaigns (Boolean useInCampaigns) {
+      this.setParam("use_in_campaigns", useInCampaigns);
+      return this;
+    }
+    public APIRequestUpdate setUseInCampaigns (String useInCampaigns) {
+      this.setParam("use_in_campaigns", useInCampaigns);
       return this;
     }
 
@@ -2438,17 +3704,23 @@ public class CustomAudience extends APINode {
   }
 
   public static enum EnumClaimObjective {
-      @SerializedName("AUTO_OFFER")
-      VALUE_AUTO_OFFER("AUTO_OFFER"),
+      @SerializedName("AUTOMOTIVE_MODEL")
+      VALUE_AUTOMOTIVE_MODEL("AUTOMOTIVE_MODEL"),
+      @SerializedName("COLLABORATIVE_ADS")
+      VALUE_COLLABORATIVE_ADS("COLLABORATIVE_ADS"),
       @SerializedName("HOME_LISTING")
       VALUE_HOME_LISTING("HOME_LISTING"),
+      @SerializedName("MEDIA_TITLE")
+      VALUE_MEDIA_TITLE("MEDIA_TITLE"),
       @SerializedName("PRODUCT")
       VALUE_PRODUCT("PRODUCT"),
       @SerializedName("TRAVEL")
       VALUE_TRAVEL("TRAVEL"),
       @SerializedName("VEHICLE")
       VALUE_VEHICLE("VEHICLE"),
-      NULL(null);
+      @SerializedName("VEHICLE_OFFER")
+      VALUE_VEHICLE_OFFER("VEHICLE_OFFER"),
+      ;
 
       private String value;
 
@@ -2463,19 +3735,33 @@ public class CustomAudience extends APINode {
   }
 
   public static enum EnumContentType {
-      @SerializedName("AUTO_OFFER")
-      VALUE_AUTO_OFFER("AUTO_OFFER"),
+      @SerializedName("AUTOMOTIVE_MODEL")
+      VALUE_AUTOMOTIVE_MODEL("AUTOMOTIVE_MODEL"),
       @SerializedName("DESTINATION")
       VALUE_DESTINATION("DESTINATION"),
       @SerializedName("FLIGHT")
       VALUE_FLIGHT("FLIGHT"),
+      @SerializedName("GENERIC")
+      VALUE_GENERIC("GENERIC"),
       @SerializedName("HOME_LISTING")
       VALUE_HOME_LISTING("HOME_LISTING"),
       @SerializedName("HOTEL")
       VALUE_HOTEL("HOTEL"),
+      @SerializedName("JOB")
+      VALUE_JOB("JOB"),
+      @SerializedName("LOCAL_SERVICE_BUSINESS")
+      VALUE_LOCAL_SERVICE_BUSINESS("LOCAL_SERVICE_BUSINESS"),
+      @SerializedName("MEDIA_TITLE")
+      VALUE_MEDIA_TITLE("MEDIA_TITLE"),
+      @SerializedName("OFFLINE_PRODUCT")
+      VALUE_OFFLINE_PRODUCT("OFFLINE_PRODUCT"),
+      @SerializedName("PRODUCT")
+      VALUE_PRODUCT("PRODUCT"),
       @SerializedName("VEHICLE")
       VALUE_VEHICLE("VEHICLE"),
-      NULL(null);
+      @SerializedName("VEHICLE_OFFER")
+      VALUE_VEHICLE_OFFER("VEHICLE_OFFER"),
+      ;
 
       private String value;
 
@@ -2489,36 +3775,67 @@ public class CustomAudience extends APINode {
       }
   }
 
+  public static enum EnumCustomerFileSource {
+      @SerializedName("BOTH_USER_AND_PARTNER_PROVIDED")
+      VALUE_BOTH_USER_AND_PARTNER_PROVIDED("BOTH_USER_AND_PARTNER_PROVIDED"),
+      @SerializedName("PARTNER_PROVIDED_ONLY")
+      VALUE_PARTNER_PROVIDED_ONLY("PARTNER_PROVIDED_ONLY"),
+      @SerializedName("USER_PROVIDED_ONLY")
+      VALUE_USER_PROVIDED_ONLY("USER_PROVIDED_ONLY"),
+      ;
+
+      private String value;
+
+      private EnumCustomerFileSource(String value) {
+        this.value = value;
+      }
+
+      @Override
+      public String toString() {
+        return value;
+      }
+  }
+
   public static enum EnumSubtype {
-      @SerializedName("CUSTOM")
-      VALUE_CUSTOM("CUSTOM"),
-      @SerializedName("WEBSITE")
-      VALUE_WEBSITE("WEBSITE"),
       @SerializedName("APP")
       VALUE_APP("APP"),
-      @SerializedName("OFFLINE_CONVERSION")
-      VALUE_OFFLINE_CONVERSION("OFFLINE_CONVERSION"),
-      @SerializedName("CLAIM")
-      VALUE_CLAIM("CLAIM"),
-      @SerializedName("PARTNER")
-      VALUE_PARTNER("PARTNER"),
-      @SerializedName("MANAGED")
-      VALUE_MANAGED("MANAGED"),
-      @SerializedName("VIDEO")
-      VALUE_VIDEO("VIDEO"),
-      @SerializedName("LOOKALIKE")
-      VALUE_LOOKALIKE("LOOKALIKE"),
-      @SerializedName("ENGAGEMENT")
-      VALUE_ENGAGEMENT("ENGAGEMENT"),
-      @SerializedName("DATA_SET")
-      VALUE_DATA_SET("DATA_SET"),
       @SerializedName("BAG_OF_ACCOUNTS")
       VALUE_BAG_OF_ACCOUNTS("BAG_OF_ACCOUNTS"),
-      @SerializedName("STUDY_RULE_AUDIENCE")
-      VALUE_STUDY_RULE_AUDIENCE("STUDY_RULE_AUDIENCE"),
+      @SerializedName("BIDDING")
+      VALUE_BIDDING("BIDDING"),
+      @SerializedName("CLAIM")
+      VALUE_CLAIM("CLAIM"),
+      @SerializedName("CUSTOM")
+      VALUE_CUSTOM("CUSTOM"),
+      @SerializedName("ENGAGEMENT")
+      VALUE_ENGAGEMENT("ENGAGEMENT"),
+      @SerializedName("EXCLUSION")
+      VALUE_EXCLUSION("EXCLUSION"),
       @SerializedName("FOX")
       VALUE_FOX("FOX"),
-      NULL(null);
+      @SerializedName("LOOKALIKE")
+      VALUE_LOOKALIKE("LOOKALIKE"),
+      @SerializedName("MANAGED")
+      VALUE_MANAGED("MANAGED"),
+      @SerializedName("MEASUREMENT")
+      VALUE_MEASUREMENT("MEASUREMENT"),
+      @SerializedName("OFFLINE_CONVERSION")
+      VALUE_OFFLINE_CONVERSION("OFFLINE_CONVERSION"),
+      @SerializedName("PARTNER")
+      VALUE_PARTNER("PARTNER"),
+      @SerializedName("PRIMARY")
+      VALUE_PRIMARY("PRIMARY"),
+      @SerializedName("REGULATED_CATEGORIES_AUDIENCE")
+      VALUE_REGULATED_CATEGORIES_AUDIENCE("REGULATED_CATEGORIES_AUDIENCE"),
+      @SerializedName("STUDY_RULE_AUDIENCE")
+      VALUE_STUDY_RULE_AUDIENCE("STUDY_RULE_AUDIENCE"),
+      @SerializedName("SUBSCRIBER_SEGMENT")
+      VALUE_SUBSCRIBER_SEGMENT("SUBSCRIBER_SEGMENT"),
+      @SerializedName("VIDEO")
+      VALUE_VIDEO("VIDEO"),
+      @SerializedName("WEBSITE")
+      VALUE_WEBSITE("WEBSITE"),
+      ;
 
       private String value;
 
@@ -2532,56 +3849,16 @@ public class CustomAudience extends APINode {
       }
   }
 
-  public static enum EnumFields {
-      @SerializedName("id")
-      VALUE_ID("id"),
-      @SerializedName("account_id")
-      VALUE_ACCOUNT_ID("account_id"),
-      @SerializedName("approximate_count")
-      VALUE_APPROXIMATE_COUNT("approximate_count"),
-      @SerializedName("data_source")
-      VALUE_DATA_SOURCE("data_source"),
-      @SerializedName("delivery_status")
-      VALUE_DELIVERY_STATUS("delivery_status"),
-      @SerializedName("description")
-      VALUE_DESCRIPTION("description"),
-      @SerializedName("external_event_source")
-      VALUE_EXTERNAL_EVENT_SOURCE("external_event_source"),
-      @SerializedName("is_value_based")
-      VALUE_IS_VALUE_BASED("is_value_based"),
-      @SerializedName("lookalike_audience_ids")
-      VALUE_LOOKALIKE_AUDIENCE_IDS("lookalike_audience_ids"),
-      @SerializedName("lookalike_spec")
-      VALUE_LOOKALIKE_SPEC("lookalike_spec"),
-      @SerializedName("name")
-      VALUE_NAME("name"),
-      @SerializedName("operation_status")
-      VALUE_OPERATION_STATUS("operation_status"),
-      @SerializedName("opt_out_link")
-      VALUE_OPT_OUT_LINK("opt_out_link"),
-      @SerializedName("permission_for_actions")
-      VALUE_PERMISSION_FOR_ACTIONS("permission_for_actions"),
-      @SerializedName("pixel_id")
-      VALUE_PIXEL_ID("pixel_id"),
-      @SerializedName("retention_days")
-      VALUE_RETENTION_DAYS("retention_days"),
-      @SerializedName("rule")
-      VALUE_RULE("rule"),
-      @SerializedName("rule_aggregation")
-      VALUE_RULE_AGGREGATION("rule_aggregation"),
-      @SerializedName("subtype")
-      VALUE_SUBTYPE("subtype"),
-      @SerializedName("time_content_updated")
-      VALUE_TIME_CONTENT_UPDATED("time_content_updated"),
-      @SerializedName("time_created")
-      VALUE_TIME_CREATED("time_created"),
-      @SerializedName("time_updated")
-      VALUE_TIME_UPDATED("time_updated"),
-      NULL(null);
+  public static enum EnumActionSource {
+      @SerializedName("PHYSICAL_STORE")
+      VALUE_PHYSICAL_STORE("PHYSICAL_STORE"),
+      @SerializedName("WEBSITE")
+      VALUE_WEBSITE("WEBSITE"),
+      ;
 
       private String value;
 
-      private EnumFields(String value) {
+      private EnumActionSource(String value) {
         this.value = value;
       }
 
@@ -2607,23 +3884,40 @@ public class CustomAudience extends APINode {
 
   public CustomAudience copyFrom(CustomAudience instance) {
     this.mAccountId = instance.mAccountId;
-    this.mApproximateCount = instance.mApproximateCount;
+    this.mApproximateCountLowerBound = instance.mApproximateCountLowerBound;
+    this.mApproximateCountUpperBound = instance.mApproximateCountUpperBound;
+    this.mCustomerFileSource = instance.mCustomerFileSource;
     this.mDataSource = instance.mDataSource;
+    this.mDataSourceTypes = instance.mDataSourceTypes;
+    this.mDatafileCustomAudienceUploadingStatus = instance.mDatafileCustomAudienceUploadingStatus;
+    this.mDeleteTime = instance.mDeleteTime;
     this.mDeliveryStatus = instance.mDeliveryStatus;
     this.mDescription = instance.mDescription;
+    this.mExcludedCustomAudiences = instance.mExcludedCustomAudiences;
     this.mExternalEventSource = instance.mExternalEventSource;
+    this.mHouseholdAudience = instance.mHouseholdAudience;
     this.mId = instance.mId;
+    this.mIncludedCustomAudiences = instance.mIncludedCustomAudiences;
+    this.mIsHousehold = instance.mIsHousehold;
+    this.mIsSnapshot = instance.mIsSnapshot;
     this.mIsValueBased = instance.mIsValueBased;
     this.mLookalikeAudienceIds = instance.mLookalikeAudienceIds;
     this.mLookalikeSpec = instance.mLookalikeSpec;
     this.mName = instance.mName;
     this.mOperationStatus = instance.mOperationStatus;
     this.mOptOutLink = instance.mOptOutLink;
+    this.mOwnerBusiness = instance.mOwnerBusiness;
+    this.mPageDeletionMarkedDeleteTime = instance.mPageDeletionMarkedDeleteTime;
     this.mPermissionForActions = instance.mPermissionForActions;
     this.mPixelId = instance.mPixelId;
+    this.mRegulatedAudienceSpec = instance.mRegulatedAudienceSpec;
     this.mRetentionDays = instance.mRetentionDays;
+    this.mRevSharePolicyId = instance.mRevSharePolicyId;
     this.mRule = instance.mRule;
     this.mRuleAggregation = instance.mRuleAggregation;
+    this.mRuleV2 = instance.mRuleV2;
+    this.mSeedAudience = instance.mSeedAudience;
+    this.mSharingStatus = instance.mSharingStatus;
     this.mSubtype = instance.mSubtype;
     this.mTimeContentUpdated = instance.mTimeContentUpdated;
     this.mTimeCreated = instance.mTimeCreated;
@@ -2635,8 +3929,8 @@ public class CustomAudience extends APINode {
 
   public static APIRequest.ResponseParser<CustomAudience> getParser() {
     return new APIRequest.ResponseParser<CustomAudience>() {
-      public APINodeList<CustomAudience> parseResponse(String response, APIContext context, APIRequest<CustomAudience> request) throws MalformedResponseException {
-        return CustomAudience.parseResponse(response, context, request);
+      public APINodeList<CustomAudience> parseResponse(String response, APIContext context, APIRequest<CustomAudience> request, String header) throws MalformedResponseException {
+        return CustomAudience.parseResponse(response, context, request, header);
       }
     };
   }

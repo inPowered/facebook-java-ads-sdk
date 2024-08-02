@@ -1,24 +1,9 @@
-/**
- * Copyright (c) 2015-present, Facebook, Inc. All rights reserved.
+/*
+ * Copyright (c) Meta Platforms, Inc. and affiliates.
+ * All rights reserved.
  *
- * You are hereby granted a non-exclusive, worldwide, royalty-free license to
- * use, copy, modify, and distribute this software in source code or binary
- * form for use in connection with the web services and APIs provided by
- * Facebook.
- *
- * As with any software that integrates with the Facebook platform, your use
- * of this software is subject to the Facebook Developer Principles and
- * Policies [http://developers.facebook.com/policy/]. This copyright notice
- * shall be included in all copies or substantial portions of the software.
- *
- * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
- * IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
- * FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL
- * THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
- * LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING
- * FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
- * DEALINGS IN THE SOFTWARE.
- *
+ * This source code is licensed under the license found in the
+ * LICENSE file in the root directory of this source tree.
  */
 
 package com.facebook.ads.sdk;
@@ -31,6 +16,11 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
+import com.google.common.base.Function;
+import com.google.common.util.concurrent.Futures;
+import com.google.common.util.concurrent.ListenableFuture;
+import com.google.common.util.concurrent.MoreExecutors;
+import com.google.common.util.concurrent.SettableFuture;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonArray;
 import com.google.gson.annotations.SerializedName;
@@ -57,6 +47,8 @@ public class Targeting extends APINode {
   private Long mAgeMax = null;
   @SerializedName("age_min")
   private Long mAgeMin = null;
+  @SerializedName("age_range")
+  private List<Long> mAgeRange = null;
   @SerializedName("alternate_auto_targeting_option")
   private String mAlternateAutoTargetingOption = null;
   @SerializedName("app_install_state")
@@ -65,12 +57,16 @@ public class Targeting extends APINode {
   private List<String> mAudienceNetworkPositions = null;
   @SerializedName("behaviors")
   private List<IDName> mBehaviors = null;
+  @SerializedName("brand_safety_content_filter_levels")
+  private List<String> mBrandSafetyContentFilterLevels = null;
+  @SerializedName("catalog_based_targeting")
+  private CatalogBasedTargeting mCatalogBasedTargeting = null;
   @SerializedName("cities")
   private List<IDName> mCities = null;
   @SerializedName("college_years")
   private List<Long> mCollegeYears = null;
   @SerializedName("connections")
-  private List<IDName> mConnections = null;
+  private List<ConnectionsTargeting> mConnections = null;
   @SerializedName("contextual_targeting_categories")
   private List<IDName> mContextualTargetingCategories = null;
   @SerializedName("countries")
@@ -80,7 +76,7 @@ public class Targeting extends APINode {
   @SerializedName("country_groups")
   private List<String> mCountryGroups = null;
   @SerializedName("custom_audiences")
-  private List<IDName> mCustomAudiences = null;
+  private List<RawCustomAudience> mCustomAudiences = null;
   @SerializedName("device_platforms")
   private List<EnumDevicePlatforms> mDevicePlatforms = null;
   @SerializedName("direct_install_devices")
@@ -111,10 +107,12 @@ public class Targeting extends APINode {
   private List<IDName> mEthnicAffinity = null;
   @SerializedName("exclude_reached_since")
   private List<String> mExcludeReachedSince = null;
+  @SerializedName("excluded_brand_safety_content_types")
+  private List<String> mExcludedBrandSafetyContentTypes = null;
   @SerializedName("excluded_connections")
-  private List<IDName> mExcludedConnections = null;
+  private List<ConnectionsTargeting> mExcludedConnections = null;
   @SerializedName("excluded_custom_audiences")
-  private List<IDName> mExcludedCustomAudiences = null;
+  private List<RawCustomAudience> mExcludedCustomAudiences = null;
   @SerializedName("excluded_dynamic_audience_ids")
   private List<String> mExcludedDynamicAudienceIds = null;
   @SerializedName("excluded_engagement_specs")
@@ -142,7 +140,7 @@ public class Targeting extends APINode {
   @SerializedName("flexible_spec")
   private List<FlexibleTargeting> mFlexibleSpec = null;
   @SerializedName("friends_of_connections")
-  private List<IDName> mFriendsOfConnections = null;
+  private List<ConnectionsTargeting> mFriendsOfConnections = null;
   @SerializedName("genders")
   private List<Long> mGenders = null;
   @SerializedName("generation")
@@ -163,10 +161,14 @@ public class Targeting extends APINode {
   private List<IDName> mIndustries = null;
   @SerializedName("instagram_positions")
   private List<String> mInstagramPositions = null;
+  @SerializedName("instream_video_skippable_excluded")
+  private Boolean mInstreamVideoSkippableExcluded = null;
   @SerializedName("interested_in")
   private List<Long> mInterestedIn = null;
   @SerializedName("interests")
   private List<IDName> mInterests = null;
+  @SerializedName("is_whatsapp_destination_ad")
+  private Boolean mIsWhatsappDestinationAd = null;
   @SerializedName("keywords")
   private List<String> mKeywords = null;
   @SerializedName("life_events")
@@ -189,22 +191,24 @@ public class Targeting extends APINode {
   private List<IDName> mPolitics = null;
   @SerializedName("product_audience_specs")
   private List<TargetingProductAudienceSpec> mProductAudienceSpecs = null;
+  @SerializedName("prospecting_audience")
+  private TargetingProspectingAudience mProspectingAudience = null;
   @SerializedName("publisher_platforms")
   private List<String> mPublisherPlatforms = null;
-  @SerializedName("publisher_visibility_categories")
-  private List<String> mPublisherVisibilityCategories = null;
   @SerializedName("radius")
   private String mRadius = null;
   @SerializedName("regions")
   private List<IDName> mRegions = null;
   @SerializedName("relationship_statuses")
   private List<Long> mRelationshipStatuses = null;
-  @SerializedName("rtb_flag")
-  private Boolean mRtbFlag = null;
   @SerializedName("site_category")
   private List<String> mSiteCategory = null;
+  @SerializedName("targeting_automation")
+  private TargetingAutomation mTargetingAutomation = null;
   @SerializedName("targeting_optimization")
   private String mTargetingOptimization = null;
+  @SerializedName("targeting_relaxation_types")
+  private TargetingRelaxation mTargetingRelaxationTypes = null;
   @SerializedName("user_adclusters")
   private List<IDName> mUserAdclusters = null;
   @SerializedName("user_device")
@@ -229,7 +233,7 @@ public class Targeting extends APINode {
   public String getId() {
     return null;
   }
-  public static Targeting loadJSON(String json, APIContext context) {
+  public static Targeting loadJSON(String json, APIContext context, String header) {
     Targeting targeting = getGson().fromJson(json, Targeting.class);
     if (context.isDebug()) {
       JsonParser parser = new JsonParser();
@@ -242,15 +246,16 @@ public class Targeting extends APINode {
         context.log("[Warning] When parsing response, object is not consistent with JSON:");
         context.log("[JSON]" + o1);
         context.log("[Object]" + o2);
-      };
+      }
     }
     targeting.context = context;
     targeting.rawValue = json;
+    targeting.header = header;
     return targeting;
   }
 
-  public static APINodeList<Targeting> parseResponse(String json, APIContext context, APIRequest request) throws MalformedResponseException {
-    APINodeList<Targeting> targetings = new APINodeList<Targeting>(request, json);
+  public static APINodeList<Targeting> parseResponse(String json, APIContext context, APIRequest request, String header) throws MalformedResponseException {
+    APINodeList<Targeting> targetings = new APINodeList<Targeting>(request, json, header);
     JsonArray arr;
     JsonObject obj;
     JsonParser parser = new JsonParser();
@@ -261,23 +266,32 @@ public class Targeting extends APINode {
         // First, check if it's a pure JSON Array
         arr = result.getAsJsonArray();
         for (int i = 0; i < arr.size(); i++) {
-          targetings.add(loadJSON(arr.get(i).getAsJsonObject().toString(), context));
+          targetings.add(loadJSON(arr.get(i).getAsJsonObject().toString(), context, header));
         };
         return targetings;
       } else if (result.isJsonObject()) {
         obj = result.getAsJsonObject();
         if (obj.has("data")) {
           if (obj.has("paging")) {
-            JsonObject paging = obj.get("paging").getAsJsonObject().get("cursors").getAsJsonObject();
-            String before = paging.has("before") ? paging.get("before").getAsString() : null;
-            String after = paging.has("after") ? paging.get("after").getAsString() : null;
-            targetings.setPaging(before, after);
+            JsonObject paging = obj.get("paging").getAsJsonObject();
+            if (paging.has("cursors")) {
+                JsonObject cursors = paging.get("cursors").getAsJsonObject();
+                String before = cursors.has("before") ? cursors.get("before").getAsString() : null;
+                String after = cursors.has("after") ? cursors.get("after").getAsString() : null;
+                targetings.setCursors(before, after);
+            }
+            String previous = paging.has("previous") ? paging.get("previous").getAsString() : null;
+            String next = paging.has("next") ? paging.get("next").getAsString() : null;
+            targetings.setPaging(previous, next);
+            if (context.hasAppSecret()) {
+              targetings.setAppSecret(context.getAppSecretProof());
+            }
           }
           if (obj.get("data").isJsonArray()) {
             // Second, check if it's a JSON array with "data"
             arr = obj.get("data").getAsJsonArray();
             for (int i = 0; i < arr.size(); i++) {
-              targetings.add(loadJSON(arr.get(i).getAsJsonObject().toString(), context));
+              targetings.add(loadJSON(arr.get(i).getAsJsonObject().toString(), context, header));
             };
           } else if (obj.get("data").isJsonObject()) {
             // Third, check if it's a JSON object with "data"
@@ -288,13 +302,13 @@ public class Targeting extends APINode {
                 isRedownload = true;
                 obj = obj.getAsJsonObject(s);
                 for (Map.Entry<String, JsonElement> entry : obj.entrySet()) {
-                  targetings.add(loadJSON(entry.getValue().toString(), context));
+                  targetings.add(loadJSON(entry.getValue().toString(), context, header));
                 }
                 break;
               }
             }
             if (!isRedownload) {
-              targetings.add(loadJSON(obj.toString(), context));
+              targetings.add(loadJSON(obj.toString(), context, header));
             }
           }
           return targetings;
@@ -302,7 +316,7 @@ public class Targeting extends APINode {
           // Fourth, check if it's a map of image objects
           obj = obj.get("images").getAsJsonObject();
           for (Map.Entry<String, JsonElement> entry : obj.entrySet()) {
-              targetings.add(loadJSON(entry.getValue().toString(), context));
+              targetings.add(loadJSON(entry.getValue().toString(), context, header));
           }
           return targetings;
         } else {
@@ -321,7 +335,7 @@ public class Targeting extends APINode {
               value.getAsJsonObject().get("id") != null &&
               value.getAsJsonObject().get("id").getAsString().equals(key)
             ) {
-              targetings.add(loadJSON(value.toString(), context));
+              targetings.add(loadJSON(value.toString(), context, header));
             } else {
               isIdIndexedArray = false;
               break;
@@ -333,7 +347,7 @@ public class Targeting extends APINode {
 
           // Sixth, check if it's pure JsonObject
           targetings.clear();
-          targetings.add(loadJSON(json, context));
+          targetings.add(loadJSON(json, context, header));
           return targetings;
         }
       }
@@ -389,6 +403,15 @@ public class Targeting extends APINode {
     return this;
   }
 
+  public List<Long> getFieldAgeRange() {
+    return mAgeRange;
+  }
+
+  public Targeting setFieldAgeRange(List<Long> value) {
+    this.mAgeRange = value;
+    return this;
+  }
+
   public String getFieldAlternateAutoTargetingOption() {
     return mAlternateAutoTargetingOption;
   }
@@ -430,6 +453,29 @@ public class Targeting extends APINode {
     this.mBehaviors = IDName.getGson().fromJson(value, type);
     return this;
   }
+  public List<String> getFieldBrandSafetyContentFilterLevels() {
+    return mBrandSafetyContentFilterLevels;
+  }
+
+  public Targeting setFieldBrandSafetyContentFilterLevels(List<String> value) {
+    this.mBrandSafetyContentFilterLevels = value;
+    return this;
+  }
+
+  public CatalogBasedTargeting getFieldCatalogBasedTargeting() {
+    return mCatalogBasedTargeting;
+  }
+
+  public Targeting setFieldCatalogBasedTargeting(CatalogBasedTargeting value) {
+    this.mCatalogBasedTargeting = value;
+    return this;
+  }
+
+  public Targeting setFieldCatalogBasedTargeting(String value) {
+    Type type = new TypeToken<CatalogBasedTargeting>(){}.getType();
+    this.mCatalogBasedTargeting = CatalogBasedTargeting.getGson().fromJson(value, type);
+    return this;
+  }
   public List<IDName> getFieldCities() {
     return mCities;
   }
@@ -453,18 +499,18 @@ public class Targeting extends APINode {
     return this;
   }
 
-  public List<IDName> getFieldConnections() {
+  public List<ConnectionsTargeting> getFieldConnections() {
     return mConnections;
   }
 
-  public Targeting setFieldConnections(List<IDName> value) {
+  public Targeting setFieldConnections(List<ConnectionsTargeting> value) {
     this.mConnections = value;
     return this;
   }
 
   public Targeting setFieldConnections(String value) {
-    Type type = new TypeToken<List<IDName>>(){}.getType();
-    this.mConnections = IDName.getGson().fromJson(value, type);
+    Type type = new TypeToken<List<ConnectionsTargeting>>(){}.getType();
+    this.mConnections = ConnectionsTargeting.getGson().fromJson(value, type);
     return this;
   }
   public List<IDName> getFieldContextualTargetingCategories() {
@@ -508,18 +554,18 @@ public class Targeting extends APINode {
     return this;
   }
 
-  public List<IDName> getFieldCustomAudiences() {
+  public List<RawCustomAudience> getFieldCustomAudiences() {
     return mCustomAudiences;
   }
 
-  public Targeting setFieldCustomAudiences(List<IDName> value) {
+  public Targeting setFieldCustomAudiences(List<RawCustomAudience> value) {
     this.mCustomAudiences = value;
     return this;
   }
 
   public Targeting setFieldCustomAudiences(String value) {
-    Type type = new TypeToken<List<IDName>>(){}.getType();
-    this.mCustomAudiences = IDName.getGson().fromJson(value, type);
+    Type type = new TypeToken<List<RawCustomAudience>>(){}.getType();
+    this.mCustomAudiences = RawCustomAudience.getGson().fromJson(value, type);
     return this;
   }
   public List<EnumDevicePlatforms> getFieldDevicePlatforms() {
@@ -677,32 +723,41 @@ public class Targeting extends APINode {
     return this;
   }
 
-  public List<IDName> getFieldExcludedConnections() {
+  public List<String> getFieldExcludedBrandSafetyContentTypes() {
+    return mExcludedBrandSafetyContentTypes;
+  }
+
+  public Targeting setFieldExcludedBrandSafetyContentTypes(List<String> value) {
+    this.mExcludedBrandSafetyContentTypes = value;
+    return this;
+  }
+
+  public List<ConnectionsTargeting> getFieldExcludedConnections() {
     return mExcludedConnections;
   }
 
-  public Targeting setFieldExcludedConnections(List<IDName> value) {
+  public Targeting setFieldExcludedConnections(List<ConnectionsTargeting> value) {
     this.mExcludedConnections = value;
     return this;
   }
 
   public Targeting setFieldExcludedConnections(String value) {
-    Type type = new TypeToken<List<IDName>>(){}.getType();
-    this.mExcludedConnections = IDName.getGson().fromJson(value, type);
+    Type type = new TypeToken<List<ConnectionsTargeting>>(){}.getType();
+    this.mExcludedConnections = ConnectionsTargeting.getGson().fromJson(value, type);
     return this;
   }
-  public List<IDName> getFieldExcludedCustomAudiences() {
+  public List<RawCustomAudience> getFieldExcludedCustomAudiences() {
     return mExcludedCustomAudiences;
   }
 
-  public Targeting setFieldExcludedCustomAudiences(List<IDName> value) {
+  public Targeting setFieldExcludedCustomAudiences(List<RawCustomAudience> value) {
     this.mExcludedCustomAudiences = value;
     return this;
   }
 
   public Targeting setFieldExcludedCustomAudiences(String value) {
-    Type type = new TypeToken<List<IDName>>(){}.getType();
-    this.mExcludedCustomAudiences = IDName.getGson().fromJson(value, type);
+    Type type = new TypeToken<List<RawCustomAudience>>(){}.getType();
+    this.mExcludedCustomAudiences = RawCustomAudience.getGson().fromJson(value, type);
     return this;
   }
   public List<String> getFieldExcludedDynamicAudienceIds() {
@@ -852,18 +907,18 @@ public class Targeting extends APINode {
     this.mFlexibleSpec = FlexibleTargeting.getGson().fromJson(value, type);
     return this;
   }
-  public List<IDName> getFieldFriendsOfConnections() {
+  public List<ConnectionsTargeting> getFieldFriendsOfConnections() {
     return mFriendsOfConnections;
   }
 
-  public Targeting setFieldFriendsOfConnections(List<IDName> value) {
+  public Targeting setFieldFriendsOfConnections(List<ConnectionsTargeting> value) {
     this.mFriendsOfConnections = value;
     return this;
   }
 
   public Targeting setFieldFriendsOfConnections(String value) {
-    Type type = new TypeToken<List<IDName>>(){}.getType();
-    this.mFriendsOfConnections = IDName.getGson().fromJson(value, type);
+    Type type = new TypeToken<List<ConnectionsTargeting>>(){}.getType();
+    this.mFriendsOfConnections = ConnectionsTargeting.getGson().fromJson(value, type);
     return this;
   }
   public List<Long> getFieldGenders() {
@@ -996,6 +1051,15 @@ public class Targeting extends APINode {
     return this;
   }
 
+  public Boolean getFieldInstreamVideoSkippableExcluded() {
+    return mInstreamVideoSkippableExcluded;
+  }
+
+  public Targeting setFieldInstreamVideoSkippableExcluded(Boolean value) {
+    this.mInstreamVideoSkippableExcluded = value;
+    return this;
+  }
+
   public List<Long> getFieldInterestedIn() {
     return mInterestedIn;
   }
@@ -1019,6 +1083,15 @@ public class Targeting extends APINode {
     this.mInterests = IDName.getGson().fromJson(value, type);
     return this;
   }
+  public Boolean getFieldIsWhatsappDestinationAd() {
+    return mIsWhatsappDestinationAd;
+  }
+
+  public Targeting setFieldIsWhatsappDestinationAd(Boolean value) {
+    this.mIsWhatsappDestinationAd = value;
+    return this;
+  }
+
   public List<String> getFieldKeywords() {
     return mKeywords;
   }
@@ -1148,21 +1221,26 @@ public class Targeting extends APINode {
     this.mProductAudienceSpecs = TargetingProductAudienceSpec.getGson().fromJson(value, type);
     return this;
   }
+  public TargetingProspectingAudience getFieldProspectingAudience() {
+    return mProspectingAudience;
+  }
+
+  public Targeting setFieldProspectingAudience(TargetingProspectingAudience value) {
+    this.mProspectingAudience = value;
+    return this;
+  }
+
+  public Targeting setFieldProspectingAudience(String value) {
+    Type type = new TypeToken<TargetingProspectingAudience>(){}.getType();
+    this.mProspectingAudience = TargetingProspectingAudience.getGson().fromJson(value, type);
+    return this;
+  }
   public List<String> getFieldPublisherPlatforms() {
     return mPublisherPlatforms;
   }
 
   public Targeting setFieldPublisherPlatforms(List<String> value) {
     this.mPublisherPlatforms = value;
-    return this;
-  }
-
-  public List<String> getFieldPublisherVisibilityCategories() {
-    return mPublisherVisibilityCategories;
-  }
-
-  public Targeting setFieldPublisherVisibilityCategories(List<String> value) {
-    this.mPublisherVisibilityCategories = value;
     return this;
   }
 
@@ -1198,15 +1276,6 @@ public class Targeting extends APINode {
     return this;
   }
 
-  public Boolean getFieldRtbFlag() {
-    return mRtbFlag;
-  }
-
-  public Targeting setFieldRtbFlag(Boolean value) {
-    this.mRtbFlag = value;
-    return this;
-  }
-
   public List<String> getFieldSiteCategory() {
     return mSiteCategory;
   }
@@ -1216,6 +1285,20 @@ public class Targeting extends APINode {
     return this;
   }
 
+  public TargetingAutomation getFieldTargetingAutomation() {
+    return mTargetingAutomation;
+  }
+
+  public Targeting setFieldTargetingAutomation(TargetingAutomation value) {
+    this.mTargetingAutomation = value;
+    return this;
+  }
+
+  public Targeting setFieldTargetingAutomation(String value) {
+    Type type = new TypeToken<TargetingAutomation>(){}.getType();
+    this.mTargetingAutomation = TargetingAutomation.getGson().fromJson(value, type);
+    return this;
+  }
   public String getFieldTargetingOptimization() {
     return mTargetingOptimization;
   }
@@ -1225,6 +1308,20 @@ public class Targeting extends APINode {
     return this;
   }
 
+  public TargetingRelaxation getFieldTargetingRelaxationTypes() {
+    return mTargetingRelaxationTypes;
+  }
+
+  public Targeting setFieldTargetingRelaxationTypes(TargetingRelaxation value) {
+    this.mTargetingRelaxationTypes = value;
+    return this;
+  }
+
+  public Targeting setFieldTargetingRelaxationTypes(String value) {
+    Type type = new TypeToken<TargetingRelaxation>(){}.getType();
+    this.mTargetingRelaxationTypes = TargetingRelaxation.getGson().fromJson(value, type);
+    return this;
+  }
   public List<IDName> getFieldUserAdclusters() {
     return mUserAdclusters;
   }
@@ -1315,13 +1412,11 @@ public class Targeting extends APINode {
 
 
   public static enum EnumDevicePlatforms {
-      @SerializedName("mobile")
-      VALUE_MOBILE("mobile"),
       @SerializedName("desktop")
       VALUE_DESKTOP("desktop"),
-      @SerializedName("connected_tv")
-      VALUE_CONNECTED_TV("connected_tv"),
-      NULL(null);
+      @SerializedName("mobile")
+      VALUE_MOBILE("mobile"),
+      ;
 
       private String value;
 
@@ -1336,13 +1431,11 @@ public class Targeting extends APINode {
   }
 
   public static enum EnumEffectiveDevicePlatforms {
-      @SerializedName("mobile")
-      VALUE_MOBILE("mobile"),
       @SerializedName("desktop")
       VALUE_DESKTOP("desktop"),
-      @SerializedName("connected_tv")
-      VALUE_CONNECTED_TV("connected_tv"),
-      NULL(null);
+      @SerializedName("mobile")
+      VALUE_MOBILE("mobile"),
+      ;
 
       private String value;
 
@@ -1374,10 +1467,13 @@ public class Targeting extends APINode {
     this.mAdgroupId = instance.mAdgroupId;
     this.mAgeMax = instance.mAgeMax;
     this.mAgeMin = instance.mAgeMin;
+    this.mAgeRange = instance.mAgeRange;
     this.mAlternateAutoTargetingOption = instance.mAlternateAutoTargetingOption;
     this.mAppInstallState = instance.mAppInstallState;
     this.mAudienceNetworkPositions = instance.mAudienceNetworkPositions;
     this.mBehaviors = instance.mBehaviors;
+    this.mBrandSafetyContentFilterLevels = instance.mBrandSafetyContentFilterLevels;
+    this.mCatalogBasedTargeting = instance.mCatalogBasedTargeting;
     this.mCities = instance.mCities;
     this.mCollegeYears = instance.mCollegeYears;
     this.mConnections = instance.mConnections;
@@ -1401,6 +1497,7 @@ public class Targeting extends APINode {
     this.mEngagementSpecs = instance.mEngagementSpecs;
     this.mEthnicAffinity = instance.mEthnicAffinity;
     this.mExcludeReachedSince = instance.mExcludeReachedSince;
+    this.mExcludedBrandSafetyContentTypes = instance.mExcludedBrandSafetyContentTypes;
     this.mExcludedConnections = instance.mExcludedConnections;
     this.mExcludedCustomAudiences = instance.mExcludedCustomAudiences;
     this.mExcludedDynamicAudienceIds = instance.mExcludedDynamicAudienceIds;
@@ -1427,8 +1524,10 @@ public class Targeting extends APINode {
     this.mIncome = instance.mIncome;
     this.mIndustries = instance.mIndustries;
     this.mInstagramPositions = instance.mInstagramPositions;
+    this.mInstreamVideoSkippableExcluded = instance.mInstreamVideoSkippableExcluded;
     this.mInterestedIn = instance.mInterestedIn;
     this.mInterests = instance.mInterests;
+    this.mIsWhatsappDestinationAd = instance.mIsWhatsappDestinationAd;
     this.mKeywords = instance.mKeywords;
     this.mLifeEvents = instance.mLifeEvents;
     this.mLocales = instance.mLocales;
@@ -1440,14 +1539,15 @@ public class Targeting extends APINode {
     this.mPoliticalViews = instance.mPoliticalViews;
     this.mPolitics = instance.mPolitics;
     this.mProductAudienceSpecs = instance.mProductAudienceSpecs;
+    this.mProspectingAudience = instance.mProspectingAudience;
     this.mPublisherPlatforms = instance.mPublisherPlatforms;
-    this.mPublisherVisibilityCategories = instance.mPublisherVisibilityCategories;
     this.mRadius = instance.mRadius;
     this.mRegions = instance.mRegions;
     this.mRelationshipStatuses = instance.mRelationshipStatuses;
-    this.mRtbFlag = instance.mRtbFlag;
     this.mSiteCategory = instance.mSiteCategory;
+    this.mTargetingAutomation = instance.mTargetingAutomation;
     this.mTargetingOptimization = instance.mTargetingOptimization;
+    this.mTargetingRelaxationTypes = instance.mTargetingRelaxationTypes;
     this.mUserAdclusters = instance.mUserAdclusters;
     this.mUserDevice = instance.mUserDevice;
     this.mUserEvent = instance.mUserEvent;
@@ -1463,8 +1563,8 @@ public class Targeting extends APINode {
 
   public static APIRequest.ResponseParser<Targeting> getParser() {
     return new APIRequest.ResponseParser<Targeting>() {
-      public APINodeList<Targeting> parseResponse(String response, APIContext context, APIRequest<Targeting> request) throws MalformedResponseException {
-        return Targeting.parseResponse(response, context, request);
+      public APINodeList<Targeting> parseResponse(String response, APIContext context, APIRequest<Targeting> request, String header) throws MalformedResponseException {
+        return Targeting.parseResponse(response, context, request, header);
       }
     };
   }

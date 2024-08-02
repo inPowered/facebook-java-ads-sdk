@@ -1,32 +1,39 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"  xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/maven-v4_0_0.xsd">
   <modelVersion>4.0.0</modelVersion>
-  <groupId>com.facebook.ads.sdk-inpwrd</groupId>
-  <artifactId>facebook-java-ads-sdk</artifactId>
+  <groupId>com.facebook.business.sdk</groupId>
+  <artifactId>facebook-java-business-sdk</artifactId>
   <packaging>jar</packaging>
-  <version>2.11.0-SNAPSHOT</version>
+  <version>20.0.0</version>
   <name>${project.groupId}:${project.artifactId}</name>
-  <description>Facebook Ads SDK for Java</description>
+  <description>Facebook Business Solutions SDK for Java</description>
   <url>https://developers.facebook.com/docs/marketing-api/sdks</url>
   <licenses>
     <license>
       <name>Facebook Platform License</name>
-      <url>https://github.com/facebook/facebook-java-ads-sdk/blob/master/LICENSE.txt</url>
+      <url>https://github.com/facebook/facebook-java-business-sdk/blob/main/LICENSE.txt</url>
     </license>
   </licenses>
   <developers>
     <developer>
-      <name>Jiaming Liu</name>
-      <email>jiamingliu@fb.com</email>
-      <organization>Facebook Inc.</organization>
-      <organizationUrl>https://www.facebook.com</organizationUrl>
+      <name>Shuotian Cheng</name>
+      <email>shuotian@meta.com</email>
+      <organization>Meta</organization>
+      <organizationUrl>https://www.meta.com/</organizationUrl>
     </developer>
   </developers>
   <scm>
-    <connection>scm:git:git://github.com/facebook/facebook-java-ads-sdk.git</connection>
-    <developerConnection>scm:git:ssh://github.com:facebook/facebook-java-ads-sdk.git</developerConnection>
-    <url>https://github.com/facebook/facebook-java-ads-sdk</url>
+    <connection>scm:git:git://github.com/facebook/facebook-java-business-sdk.git</connection>
+    <developerConnection>scm:git:ssh://github.com:facebook/facebook-java-business-sdk.git</developerConnection>
+    <url>https://github.com/facebook/facebook-java-business-sdk</url>
   </scm>
+  <properties>
+    <kotlin.version>1.8.0</kotlin.version>
+    <mockk.version>1.9.3</mockk.version>
+    <kotlin.compiler.incremental>true</kotlin.compiler.incremental>
+    <maven.compiler.source>1.8</maven.compiler.source>
+    <maven.compiler.target>1.8</maven.compiler.target>
+  </properties>
   <build>
     <plugins>
       <plugin>
@@ -56,7 +63,7 @@
       <plugin>
         <groupId>org.apache.maven.plugins</groupId>
         <artifactId>maven-javadoc-plugin</artifactId>
-        <version>2.9.1</version>
+        <version>3.3.0</version>
         <executions>
           <execution>
             <id>attach-javadocs</id>
@@ -75,21 +82,100 @@
           <target>1.8</target>
         </configuration>
       </plugin>
+      <plugin>
+        <groupId>org.apache.maven.plugins</groupId>
+        <artifactId>maven-shade-plugin</artifactId>
+        <version>2.4.1</version>
+        <executions>
+          <execution>
+            <phase>package</phase>
+            <goals>
+               <goal>shade</goal>
+            </goals>
+            <configuration>
+              <shadedArtifactAttached>true</shadedArtifactAttached>
+              <shadedClassifierName>jar-with-dependencies</shadedClassifierName>
+            </configuration>
+          </execution>
+        </executions>
+      </plugin>
+      <!-- compile kotlin in test file-->
+      <plugin>
+          <artifactId>kotlin-maven-plugin</artifactId>
+          <groupId>org.jetbrains.kotlin</groupId>
+          <version>${kotlin.version}</version>
+          <executions>
+              <execution>
+                  <id>test-compile</id>
+                  <goals>
+                    <goal>test-compile</goal>
+                  </goals>
+                  <configuration>
+                      <sourceDirs>
+                          <sourceDir>${project.basedir}/src/test/kotlin</sourceDir>
+                      </sourceDirs>
+                  </configuration>
+              </execution>
+          </executions>
+      </plugin>
     </plugins>
   </build>
   <dependencies>
     <dependency>
       <groupId>com.google.code.gson</groupId>
       <artifactId>gson</artifactId>
-      <version>2.5</version>
+      <version>2.8.9</version>
+    </dependency>
+    <dependency>
+      <groupId>com.squareup.okhttp3</groupId>
+      <artifactId>okhttp</artifactId>
+      <version>3.9.1</version>
+    </dependency>
+    <dependency>
+      <groupId>com.google.guava</groupId>
+      <artifactId>guava</artifactId>
+      <version>33.0.0-jre</version>
+    </dependency>
+    <dependency>
+      <groupId>com.squareup.okio</groupId>
+      <artifactId>okio</artifactId>
+      <version>3.4.0</version>
+    </dependency>
+    <dependency>
+      <groupId>junit</groupId>
+      <artifactId>junit</artifactId>
+      <version>4.13.1</version>
+      <scope>test</scope>
+    </dependency>
+    <dependency>
+      <groupId>org.jetbrains.kotlin</groupId>
+      <artifactId>kotlin-test-junit</artifactId>
+      <version>${kotlin.version}</version>
+      <scope>test</scope>
+    </dependency>
+    <dependency>
+        <groupId>org.jetbrains.kotlin</groupId>
+        <artifactId>kotlin-stdlib</artifactId>
+        <version>${kotlin.version}</version>
+        <scope>test</scope>
+    </dependency>
+    <dependency>
+      <groupId>io.mockk</groupId>
+      <artifactId>mockk</artifactId>
+      <version>${mockk.version}</version>
+      <scope>test</scope>
+    </dependency>
+    <dependency>
+      <groupId>org.mockito</groupId>
+      <artifactId>mockito-core</artifactId>
+      <version>3.5.11</version>
+      <scope>test</scope>
     </dependency>
   </dependencies>
     <distributionManagement>
-
         <repository>
             <id>internal</id>
             <url>http://archiva.inpwrd.net/archiva/repository/internal/</url>
         </repository>
-
     </distributionManagement>
 </project>

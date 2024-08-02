@@ -1,24 +1,9 @@
-/**
- * Copyright (c) 2015-present, Facebook, Inc. All rights reserved.
+/*
+ * Copyright (c) Meta Platforms, Inc. and affiliates.
+ * All rights reserved.
  *
- * You are hereby granted a non-exclusive, worldwide, royalty-free license to
- * use, copy, modify, and distribute this software in source code or binary
- * form for use in connection with the web services and APIs provided by
- * Facebook.
- *
- * As with any software that integrates with the Facebook platform, your use
- * of this software is subject to the Facebook Developer Principles and
- * Policies [http://developers.facebook.com/policy/]. This copyright notice
- * shall be included in all copies or substantial portions of the software.
- *
- * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
- * IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
- * FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL
- * THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
- * LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING
- * FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
- * DEALINGS IN THE SOFTWARE.
- *
+ * This source code is licensed under the license found in the
+ * LICENSE file in the root directory of this source tree.
  */
 
 package com.facebook.ads.sdk;
@@ -31,6 +16,11 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
+import com.google.common.base.Function;
+import com.google.common.util.concurrent.Futures;
+import com.google.common.util.concurrent.ListenableFuture;
+import com.google.common.util.concurrent.MoreExecutors;
+import com.google.common.util.concurrent.SettableFuture;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonArray;
 import com.google.gson.annotations.SerializedName;
@@ -51,16 +41,18 @@ import com.facebook.ads.sdk.APIException.MalformedResponseException;
  *
  */
 public class AdCampaignDeliveryEstimate extends APINode {
-  @SerializedName("bid_estimate")
-  private Object mBidEstimate = null;
   @SerializedName("daily_outcomes_curve")
   private List<OutcomePredictionPoint> mDailyOutcomesCurve = null;
   @SerializedName("estimate_dau")
-  private Object mEstimateDau = null;
-  @SerializedName("estimate_mau")
-  private Object mEstimateMau = null;
+  private Long mEstimateDau = null;
+  @SerializedName("estimate_mau_lower_bound")
+  private Long mEstimateMauLowerBound = null;
+  @SerializedName("estimate_mau_upper_bound")
+  private Long mEstimateMauUpperBound = null;
   @SerializedName("estimate_ready")
   private Boolean mEstimateReady = null;
+  @SerializedName("targeting_optimization_types")
+  private List<com.facebook.ads.sdk.customtype.TargetingOptimizationTuple> mTargetingOptimizationTypes = null;
   protected static Gson gson = null;
 
   public AdCampaignDeliveryEstimate() {
@@ -69,7 +61,7 @@ public class AdCampaignDeliveryEstimate extends APINode {
   public String getId() {
     return null;
   }
-  public static AdCampaignDeliveryEstimate loadJSON(String json, APIContext context) {
+  public static AdCampaignDeliveryEstimate loadJSON(String json, APIContext context, String header) {
     AdCampaignDeliveryEstimate adCampaignDeliveryEstimate = getGson().fromJson(json, AdCampaignDeliveryEstimate.class);
     if (context.isDebug()) {
       JsonParser parser = new JsonParser();
@@ -82,15 +74,16 @@ public class AdCampaignDeliveryEstimate extends APINode {
         context.log("[Warning] When parsing response, object is not consistent with JSON:");
         context.log("[JSON]" + o1);
         context.log("[Object]" + o2);
-      };
+      }
     }
     adCampaignDeliveryEstimate.context = context;
     adCampaignDeliveryEstimate.rawValue = json;
+    adCampaignDeliveryEstimate.header = header;
     return adCampaignDeliveryEstimate;
   }
 
-  public static APINodeList<AdCampaignDeliveryEstimate> parseResponse(String json, APIContext context, APIRequest request) throws MalformedResponseException {
-    APINodeList<AdCampaignDeliveryEstimate> adCampaignDeliveryEstimates = new APINodeList<AdCampaignDeliveryEstimate>(request, json);
+  public static APINodeList<AdCampaignDeliveryEstimate> parseResponse(String json, APIContext context, APIRequest request, String header) throws MalformedResponseException {
+    APINodeList<AdCampaignDeliveryEstimate> adCampaignDeliveryEstimates = new APINodeList<AdCampaignDeliveryEstimate>(request, json, header);
     JsonArray arr;
     JsonObject obj;
     JsonParser parser = new JsonParser();
@@ -101,23 +94,32 @@ public class AdCampaignDeliveryEstimate extends APINode {
         // First, check if it's a pure JSON Array
         arr = result.getAsJsonArray();
         for (int i = 0; i < arr.size(); i++) {
-          adCampaignDeliveryEstimates.add(loadJSON(arr.get(i).getAsJsonObject().toString(), context));
+          adCampaignDeliveryEstimates.add(loadJSON(arr.get(i).getAsJsonObject().toString(), context, header));
         };
         return adCampaignDeliveryEstimates;
       } else if (result.isJsonObject()) {
         obj = result.getAsJsonObject();
         if (obj.has("data")) {
           if (obj.has("paging")) {
-            JsonObject paging = obj.get("paging").getAsJsonObject().get("cursors").getAsJsonObject();
-            String before = paging.has("before") ? paging.get("before").getAsString() : null;
-            String after = paging.has("after") ? paging.get("after").getAsString() : null;
-            adCampaignDeliveryEstimates.setPaging(before, after);
+            JsonObject paging = obj.get("paging").getAsJsonObject();
+            if (paging.has("cursors")) {
+                JsonObject cursors = paging.get("cursors").getAsJsonObject();
+                String before = cursors.has("before") ? cursors.get("before").getAsString() : null;
+                String after = cursors.has("after") ? cursors.get("after").getAsString() : null;
+                adCampaignDeliveryEstimates.setCursors(before, after);
+            }
+            String previous = paging.has("previous") ? paging.get("previous").getAsString() : null;
+            String next = paging.has("next") ? paging.get("next").getAsString() : null;
+            adCampaignDeliveryEstimates.setPaging(previous, next);
+            if (context.hasAppSecret()) {
+              adCampaignDeliveryEstimates.setAppSecret(context.getAppSecretProof());
+            }
           }
           if (obj.get("data").isJsonArray()) {
             // Second, check if it's a JSON array with "data"
             arr = obj.get("data").getAsJsonArray();
             for (int i = 0; i < arr.size(); i++) {
-              adCampaignDeliveryEstimates.add(loadJSON(arr.get(i).getAsJsonObject().toString(), context));
+              adCampaignDeliveryEstimates.add(loadJSON(arr.get(i).getAsJsonObject().toString(), context, header));
             };
           } else if (obj.get("data").isJsonObject()) {
             // Third, check if it's a JSON object with "data"
@@ -128,13 +130,13 @@ public class AdCampaignDeliveryEstimate extends APINode {
                 isRedownload = true;
                 obj = obj.getAsJsonObject(s);
                 for (Map.Entry<String, JsonElement> entry : obj.entrySet()) {
-                  adCampaignDeliveryEstimates.add(loadJSON(entry.getValue().toString(), context));
+                  adCampaignDeliveryEstimates.add(loadJSON(entry.getValue().toString(), context, header));
                 }
                 break;
               }
             }
             if (!isRedownload) {
-              adCampaignDeliveryEstimates.add(loadJSON(obj.toString(), context));
+              adCampaignDeliveryEstimates.add(loadJSON(obj.toString(), context, header));
             }
           }
           return adCampaignDeliveryEstimates;
@@ -142,7 +144,7 @@ public class AdCampaignDeliveryEstimate extends APINode {
           // Fourth, check if it's a map of image objects
           obj = obj.get("images").getAsJsonObject();
           for (Map.Entry<String, JsonElement> entry : obj.entrySet()) {
-              adCampaignDeliveryEstimates.add(loadJSON(entry.getValue().toString(), context));
+              adCampaignDeliveryEstimates.add(loadJSON(entry.getValue().toString(), context, header));
           }
           return adCampaignDeliveryEstimates;
         } else {
@@ -161,7 +163,7 @@ public class AdCampaignDeliveryEstimate extends APINode {
               value.getAsJsonObject().get("id") != null &&
               value.getAsJsonObject().get("id").getAsString().equals(key)
             ) {
-              adCampaignDeliveryEstimates.add(loadJSON(value.toString(), context));
+              adCampaignDeliveryEstimates.add(loadJSON(value.toString(), context, header));
             } else {
               isIdIndexedArray = false;
               break;
@@ -173,7 +175,7 @@ public class AdCampaignDeliveryEstimate extends APINode {
 
           // Sixth, check if it's pure JsonObject
           adCampaignDeliveryEstimates.clear();
-          adCampaignDeliveryEstimates.add(loadJSON(json, context));
+          adCampaignDeliveryEstimates.add(loadJSON(json, context, header));
           return adCampaignDeliveryEstimates;
         }
       }
@@ -202,15 +204,6 @@ public class AdCampaignDeliveryEstimate extends APINode {
   }
 
 
-  public Object getFieldBidEstimate() {
-    return mBidEstimate;
-  }
-
-  public AdCampaignDeliveryEstimate setFieldBidEstimate(Object value) {
-    this.mBidEstimate = value;
-    return this;
-  }
-
   public List<OutcomePredictionPoint> getFieldDailyOutcomesCurve() {
     return mDailyOutcomesCurve;
   }
@@ -225,21 +218,30 @@ public class AdCampaignDeliveryEstimate extends APINode {
     this.mDailyOutcomesCurve = OutcomePredictionPoint.getGson().fromJson(value, type);
     return this;
   }
-  public Object getFieldEstimateDau() {
+  public Long getFieldEstimateDau() {
     return mEstimateDau;
   }
 
-  public AdCampaignDeliveryEstimate setFieldEstimateDau(Object value) {
+  public AdCampaignDeliveryEstimate setFieldEstimateDau(Long value) {
     this.mEstimateDau = value;
     return this;
   }
 
-  public Object getFieldEstimateMau() {
-    return mEstimateMau;
+  public Long getFieldEstimateMauLowerBound() {
+    return mEstimateMauLowerBound;
   }
 
-  public AdCampaignDeliveryEstimate setFieldEstimateMau(Object value) {
-    this.mEstimateMau = value;
+  public AdCampaignDeliveryEstimate setFieldEstimateMauLowerBound(Long value) {
+    this.mEstimateMauLowerBound = value;
+    return this;
+  }
+
+  public Long getFieldEstimateMauUpperBound() {
+    return mEstimateMauUpperBound;
+  }
+
+  public AdCampaignDeliveryEstimate setFieldEstimateMauUpperBound(Long value) {
+    this.mEstimateMauUpperBound = value;
     return this;
   }
 
@@ -252,50 +254,75 @@ public class AdCampaignDeliveryEstimate extends APINode {
     return this;
   }
 
+  public List<com.facebook.ads.sdk.customtype.TargetingOptimizationTuple> getFieldTargetingOptimizationTypes() {
+    return mTargetingOptimizationTypes;
+  }
+
+  public AdCampaignDeliveryEstimate setFieldTargetingOptimizationTypes(List<com.facebook.ads.sdk.customtype.TargetingOptimizationTuple> value) {
+    this.mTargetingOptimizationTypes = value;
+    return this;
+  }
+
 
 
   public static enum EnumOptimizationGoal {
-      @SerializedName("NONE")
-      VALUE_NONE("NONE"),
-      @SerializedName("APP_INSTALLS")
-      VALUE_APP_INSTALLS("APP_INSTALLS"),
-      @SerializedName("BRAND_AWARENESS")
-      VALUE_BRAND_AWARENESS("BRAND_AWARENESS"),
       @SerializedName("AD_RECALL_LIFT")
       VALUE_AD_RECALL_LIFT("AD_RECALL_LIFT"),
-      @SerializedName("CLICKS")
-      VALUE_CLICKS("CLICKS"),
+      @SerializedName("APP_INSTALLS")
+      VALUE_APP_INSTALLS("APP_INSTALLS"),
+      @SerializedName("APP_INSTALLS_AND_OFFSITE_CONVERSIONS")
+      VALUE_APP_INSTALLS_AND_OFFSITE_CONVERSIONS("APP_INSTALLS_AND_OFFSITE_CONVERSIONS"),
+      @SerializedName("CONVERSATIONS")
+      VALUE_CONVERSATIONS("CONVERSATIONS"),
+      @SerializedName("DERIVED_EVENTS")
+      VALUE_DERIVED_EVENTS("DERIVED_EVENTS"),
       @SerializedName("ENGAGED_USERS")
       VALUE_ENGAGED_USERS("ENGAGED_USERS"),
       @SerializedName("EVENT_RESPONSES")
       VALUE_EVENT_RESPONSES("EVENT_RESPONSES"),
       @SerializedName("IMPRESSIONS")
       VALUE_IMPRESSIONS("IMPRESSIONS"),
+      @SerializedName("IN_APP_VALUE")
+      VALUE_IN_APP_VALUE("IN_APP_VALUE"),
+      @SerializedName("LANDING_PAGE_VIEWS")
+      VALUE_LANDING_PAGE_VIEWS("LANDING_PAGE_VIEWS"),
       @SerializedName("LEAD_GENERATION")
       VALUE_LEAD_GENERATION("LEAD_GENERATION"),
       @SerializedName("LINK_CLICKS")
       VALUE_LINK_CLICKS("LINK_CLICKS"),
-      @SerializedName("OFFER_CLAIMS")
-      VALUE_OFFER_CLAIMS("OFFER_CLAIMS"),
+      @SerializedName("MEANINGFUL_CALL_ATTEMPT")
+      VALUE_MEANINGFUL_CALL_ATTEMPT("MEANINGFUL_CALL_ATTEMPT"),
+      @SerializedName("MESSAGING_APPOINTMENT_CONVERSION")
+      VALUE_MESSAGING_APPOINTMENT_CONVERSION("MESSAGING_APPOINTMENT_CONVERSION"),
+      @SerializedName("MESSAGING_PURCHASE_CONVERSION")
+      VALUE_MESSAGING_PURCHASE_CONVERSION("MESSAGING_PURCHASE_CONVERSION"),
+      @SerializedName("NONE")
+      VALUE_NONE("NONE"),
       @SerializedName("OFFSITE_CONVERSIONS")
       VALUE_OFFSITE_CONVERSIONS("OFFSITE_CONVERSIONS"),
-      @SerializedName("PAGE_ENGAGEMENT")
-      VALUE_PAGE_ENGAGEMENT("PAGE_ENGAGEMENT"),
       @SerializedName("PAGE_LIKES")
       VALUE_PAGE_LIKES("PAGE_LIKES"),
       @SerializedName("POST_ENGAGEMENT")
       VALUE_POST_ENGAGEMENT("POST_ENGAGEMENT"),
+      @SerializedName("PROFILE_VISIT")
+      VALUE_PROFILE_VISIT("PROFILE_VISIT"),
+      @SerializedName("QUALITY_CALL")
+      VALUE_QUALITY_CALL("QUALITY_CALL"),
+      @SerializedName("QUALITY_LEAD")
+      VALUE_QUALITY_LEAD("QUALITY_LEAD"),
       @SerializedName("REACH")
       VALUE_REACH("REACH"),
-      @SerializedName("SOCIAL_IMPRESSIONS")
-      VALUE_SOCIAL_IMPRESSIONS("SOCIAL_IMPRESSIONS"),
-      @SerializedName("VIDEO_VIEWS")
-      VALUE_VIDEO_VIEWS("VIDEO_VIEWS"),
-      @SerializedName("APP_DOWNLOADS")
-      VALUE_APP_DOWNLOADS("APP_DOWNLOADS"),
-      @SerializedName("LANDING_PAGE_VIEWS")
-      VALUE_LANDING_PAGE_VIEWS("LANDING_PAGE_VIEWS"),
-      NULL(null);
+      @SerializedName("REMINDERS_SET")
+      VALUE_REMINDERS_SET("REMINDERS_SET"),
+      @SerializedName("SUBSCRIBERS")
+      VALUE_SUBSCRIBERS("SUBSCRIBERS"),
+      @SerializedName("THRUPLAY")
+      VALUE_THRUPLAY("THRUPLAY"),
+      @SerializedName("VALUE")
+      VALUE_VALUE("VALUE"),
+      @SerializedName("VISIT_INSTAGRAM_PROFILE")
+      VALUE_VISIT_INSTAGRAM_PROFILE("VISIT_INSTAGRAM_PROFILE"),
+      ;
 
       private String value;
 
@@ -324,11 +351,12 @@ public class AdCampaignDeliveryEstimate extends APINode {
   }
 
   public AdCampaignDeliveryEstimate copyFrom(AdCampaignDeliveryEstimate instance) {
-    this.mBidEstimate = instance.mBidEstimate;
     this.mDailyOutcomesCurve = instance.mDailyOutcomesCurve;
     this.mEstimateDau = instance.mEstimateDau;
-    this.mEstimateMau = instance.mEstimateMau;
+    this.mEstimateMauLowerBound = instance.mEstimateMauLowerBound;
+    this.mEstimateMauUpperBound = instance.mEstimateMauUpperBound;
     this.mEstimateReady = instance.mEstimateReady;
+    this.mTargetingOptimizationTypes = instance.mTargetingOptimizationTypes;
     this.context = instance.context;
     this.rawValue = instance.rawValue;
     return this;
@@ -336,8 +364,8 @@ public class AdCampaignDeliveryEstimate extends APINode {
 
   public static APIRequest.ResponseParser<AdCampaignDeliveryEstimate> getParser() {
     return new APIRequest.ResponseParser<AdCampaignDeliveryEstimate>() {
-      public APINodeList<AdCampaignDeliveryEstimate> parseResponse(String response, APIContext context, APIRequest<AdCampaignDeliveryEstimate> request) throws MalformedResponseException {
-        return AdCampaignDeliveryEstimate.parseResponse(response, context, request);
+      public APINodeList<AdCampaignDeliveryEstimate> parseResponse(String response, APIContext context, APIRequest<AdCampaignDeliveryEstimate> request, String header) throws MalformedResponseException {
+        return AdCampaignDeliveryEstimate.parseResponse(response, context, request, header);
       }
     };
   }

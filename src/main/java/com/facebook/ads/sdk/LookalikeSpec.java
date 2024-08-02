@@ -1,24 +1,9 @@
-/**
- * Copyright (c) 2015-present, Facebook, Inc. All rights reserved.
+/*
+ * Copyright (c) Meta Platforms, Inc. and affiliates.
+ * All rights reserved.
  *
- * You are hereby granted a non-exclusive, worldwide, royalty-free license to
- * use, copy, modify, and distribute this software in source code or binary
- * form for use in connection with the web services and APIs provided by
- * Facebook.
- *
- * As with any software that integrates with the Facebook platform, your use
- * of this software is subject to the Facebook Developer Principles and
- * Policies [http://developers.facebook.com/policy/]. This copyright notice
- * shall be included in all copies or substantial portions of the software.
- *
- * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
- * IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
- * FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL
- * THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
- * LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING
- * FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
- * DEALINGS IN THE SOFTWARE.
- *
+ * This source code is licensed under the license found in the
+ * LICENSE file in the root directory of this source tree.
  */
 
 package com.facebook.ads.sdk;
@@ -31,6 +16,11 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
+import com.google.common.base.Function;
+import com.google.common.util.concurrent.Futures;
+import com.google.common.util.concurrent.ListenableFuture;
+import com.google.common.util.concurrent.MoreExecutors;
+import com.google.common.util.concurrent.SettableFuture;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonArray;
 import com.google.gson.annotations.SerializedName;
@@ -57,12 +47,22 @@ public class LookalikeSpec extends APINode {
   private Boolean mIsFinancialService = null;
   @SerializedName("origin")
   private List<Object> mOrigin = null;
+  @SerializedName("origin_event_name")
+  private String mOriginEventName = null;
+  @SerializedName("origin_event_source_name")
+  private String mOriginEventSourceName = null;
+  @SerializedName("origin_event_source_type")
+  private String mOriginEventSourceType = null;
+  @SerializedName("product_set_name")
+  private String mProductSetName = null;
   @SerializedName("ratio")
   private Double mRatio = null;
   @SerializedName("starting_ratio")
   private Double mStartingRatio = null;
   @SerializedName("target_countries")
   private List<String> mTargetCountries = null;
+  @SerializedName("target_country_names")
+  private JsonArray mTargetCountryNames = null;
   @SerializedName("type")
   private String mType = null;
   protected static Gson gson = null;
@@ -73,7 +73,7 @@ public class LookalikeSpec extends APINode {
   public String getId() {
     return null;
   }
-  public static LookalikeSpec loadJSON(String json, APIContext context) {
+  public static LookalikeSpec loadJSON(String json, APIContext context, String header) {
     LookalikeSpec lookalikeSpec = getGson().fromJson(json, LookalikeSpec.class);
     if (context.isDebug()) {
       JsonParser parser = new JsonParser();
@@ -86,15 +86,16 @@ public class LookalikeSpec extends APINode {
         context.log("[Warning] When parsing response, object is not consistent with JSON:");
         context.log("[JSON]" + o1);
         context.log("[Object]" + o2);
-      };
+      }
     }
     lookalikeSpec.context = context;
     lookalikeSpec.rawValue = json;
+    lookalikeSpec.header = header;
     return lookalikeSpec;
   }
 
-  public static APINodeList<LookalikeSpec> parseResponse(String json, APIContext context, APIRequest request) throws MalformedResponseException {
-    APINodeList<LookalikeSpec> lookalikeSpecs = new APINodeList<LookalikeSpec>(request, json);
+  public static APINodeList<LookalikeSpec> parseResponse(String json, APIContext context, APIRequest request, String header) throws MalformedResponseException {
+    APINodeList<LookalikeSpec> lookalikeSpecs = new APINodeList<LookalikeSpec>(request, json, header);
     JsonArray arr;
     JsonObject obj;
     JsonParser parser = new JsonParser();
@@ -105,23 +106,32 @@ public class LookalikeSpec extends APINode {
         // First, check if it's a pure JSON Array
         arr = result.getAsJsonArray();
         for (int i = 0; i < arr.size(); i++) {
-          lookalikeSpecs.add(loadJSON(arr.get(i).getAsJsonObject().toString(), context));
+          lookalikeSpecs.add(loadJSON(arr.get(i).getAsJsonObject().toString(), context, header));
         };
         return lookalikeSpecs;
       } else if (result.isJsonObject()) {
         obj = result.getAsJsonObject();
         if (obj.has("data")) {
           if (obj.has("paging")) {
-            JsonObject paging = obj.get("paging").getAsJsonObject().get("cursors").getAsJsonObject();
-            String before = paging.has("before") ? paging.get("before").getAsString() : null;
-            String after = paging.has("after") ? paging.get("after").getAsString() : null;
-            lookalikeSpecs.setPaging(before, after);
+            JsonObject paging = obj.get("paging").getAsJsonObject();
+            if (paging.has("cursors")) {
+                JsonObject cursors = paging.get("cursors").getAsJsonObject();
+                String before = cursors.has("before") ? cursors.get("before").getAsString() : null;
+                String after = cursors.has("after") ? cursors.get("after").getAsString() : null;
+                lookalikeSpecs.setCursors(before, after);
+            }
+            String previous = paging.has("previous") ? paging.get("previous").getAsString() : null;
+            String next = paging.has("next") ? paging.get("next").getAsString() : null;
+            lookalikeSpecs.setPaging(previous, next);
+            if (context.hasAppSecret()) {
+              lookalikeSpecs.setAppSecret(context.getAppSecretProof());
+            }
           }
           if (obj.get("data").isJsonArray()) {
             // Second, check if it's a JSON array with "data"
             arr = obj.get("data").getAsJsonArray();
             for (int i = 0; i < arr.size(); i++) {
-              lookalikeSpecs.add(loadJSON(arr.get(i).getAsJsonObject().toString(), context));
+              lookalikeSpecs.add(loadJSON(arr.get(i).getAsJsonObject().toString(), context, header));
             };
           } else if (obj.get("data").isJsonObject()) {
             // Third, check if it's a JSON object with "data"
@@ -132,13 +142,13 @@ public class LookalikeSpec extends APINode {
                 isRedownload = true;
                 obj = obj.getAsJsonObject(s);
                 for (Map.Entry<String, JsonElement> entry : obj.entrySet()) {
-                  lookalikeSpecs.add(loadJSON(entry.getValue().toString(), context));
+                  lookalikeSpecs.add(loadJSON(entry.getValue().toString(), context, header));
                 }
                 break;
               }
             }
             if (!isRedownload) {
-              lookalikeSpecs.add(loadJSON(obj.toString(), context));
+              lookalikeSpecs.add(loadJSON(obj.toString(), context, header));
             }
           }
           return lookalikeSpecs;
@@ -146,7 +156,7 @@ public class LookalikeSpec extends APINode {
           // Fourth, check if it's a map of image objects
           obj = obj.get("images").getAsJsonObject();
           for (Map.Entry<String, JsonElement> entry : obj.entrySet()) {
-              lookalikeSpecs.add(loadJSON(entry.getValue().toString(), context));
+              lookalikeSpecs.add(loadJSON(entry.getValue().toString(), context, header));
           }
           return lookalikeSpecs;
         } else {
@@ -165,7 +175,7 @@ public class LookalikeSpec extends APINode {
               value.getAsJsonObject().get("id") != null &&
               value.getAsJsonObject().get("id").getAsString().equals(key)
             ) {
-              lookalikeSpecs.add(loadJSON(value.toString(), context));
+              lookalikeSpecs.add(loadJSON(value.toString(), context, header));
             } else {
               isIdIndexedArray = false;
               break;
@@ -177,7 +187,7 @@ public class LookalikeSpec extends APINode {
 
           // Sixth, check if it's pure JsonObject
           lookalikeSpecs.clear();
-          lookalikeSpecs.add(loadJSON(json, context));
+          lookalikeSpecs.add(loadJSON(json, context, header));
           return lookalikeSpecs;
         }
       }
@@ -233,6 +243,42 @@ public class LookalikeSpec extends APINode {
     return this;
   }
 
+  public String getFieldOriginEventName() {
+    return mOriginEventName;
+  }
+
+  public LookalikeSpec setFieldOriginEventName(String value) {
+    this.mOriginEventName = value;
+    return this;
+  }
+
+  public String getFieldOriginEventSourceName() {
+    return mOriginEventSourceName;
+  }
+
+  public LookalikeSpec setFieldOriginEventSourceName(String value) {
+    this.mOriginEventSourceName = value;
+    return this;
+  }
+
+  public String getFieldOriginEventSourceType() {
+    return mOriginEventSourceType;
+  }
+
+  public LookalikeSpec setFieldOriginEventSourceType(String value) {
+    this.mOriginEventSourceType = value;
+    return this;
+  }
+
+  public String getFieldProductSetName() {
+    return mProductSetName;
+  }
+
+  public LookalikeSpec setFieldProductSetName(String value) {
+    this.mProductSetName = value;
+    return this;
+  }
+
   public Double getFieldRatio() {
     return mRatio;
   }
@@ -257,6 +303,15 @@ public class LookalikeSpec extends APINode {
 
   public LookalikeSpec setFieldTargetCountries(List<String> value) {
     this.mTargetCountries = value;
+    return this;
+  }
+
+  public JsonArray getFieldTargetCountryNames() {
+    return mTargetCountryNames;
+  }
+
+  public LookalikeSpec setFieldTargetCountryNames(JsonArray value) {
+    this.mTargetCountryNames = value;
     return this;
   }
 
@@ -289,9 +344,14 @@ public class LookalikeSpec extends APINode {
     this.mCountry = instance.mCountry;
     this.mIsFinancialService = instance.mIsFinancialService;
     this.mOrigin = instance.mOrigin;
+    this.mOriginEventName = instance.mOriginEventName;
+    this.mOriginEventSourceName = instance.mOriginEventSourceName;
+    this.mOriginEventSourceType = instance.mOriginEventSourceType;
+    this.mProductSetName = instance.mProductSetName;
     this.mRatio = instance.mRatio;
     this.mStartingRatio = instance.mStartingRatio;
     this.mTargetCountries = instance.mTargetCountries;
+    this.mTargetCountryNames = instance.mTargetCountryNames;
     this.mType = instance.mType;
     this.context = instance.context;
     this.rawValue = instance.rawValue;
@@ -300,8 +360,8 @@ public class LookalikeSpec extends APINode {
 
   public static APIRequest.ResponseParser<LookalikeSpec> getParser() {
     return new APIRequest.ResponseParser<LookalikeSpec>() {
-      public APINodeList<LookalikeSpec> parseResponse(String response, APIContext context, APIRequest<LookalikeSpec> request) throws MalformedResponseException {
-        return LookalikeSpec.parseResponse(response, context, request);
+      public APINodeList<LookalikeSpec> parseResponse(String response, APIContext context, APIRequest<LookalikeSpec> request, String header) throws MalformedResponseException {
+        return LookalikeSpec.parseResponse(response, context, request, header);
       }
     };
   }

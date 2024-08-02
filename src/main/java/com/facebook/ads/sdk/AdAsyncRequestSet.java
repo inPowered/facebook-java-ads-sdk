@@ -1,24 +1,9 @@
-/**
- * Copyright (c) 2015-present, Facebook, Inc. All rights reserved.
+/*
+ * Copyright (c) Meta Platforms, Inc. and affiliates.
+ * All rights reserved.
  *
- * You are hereby granted a non-exclusive, worldwide, royalty-free license to
- * use, copy, modify, and distribute this software in source code or binary
- * form for use in connection with the web services and APIs provided by
- * Facebook.
- *
- * As with any software that integrates with the Facebook platform, your use
- * of this software is subject to the Facebook Developer Principles and
- * Policies [http://developers.facebook.com/policy/]. This copyright notice
- * shall be included in all copies or substantial portions of the software.
- *
- * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
- * IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
- * FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL
- * THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
- * LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING
- * FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
- * DEALINGS IN THE SOFTWARE.
- *
+ * This source code is licensed under the license found in the
+ * LICENSE file in the root directory of this source tree.
  */
 
 package com.facebook.ads.sdk;
@@ -31,6 +16,11 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
+import com.google.common.base.Function;
+import com.google.common.util.concurrent.Futures;
+import com.google.common.util.concurrent.ListenableFuture;
+import com.google.common.util.concurrent.MoreExecutors;
+import com.google.common.util.concurrent.SettableFuture;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonArray;
 import com.google.gson.annotations.SerializedName;
@@ -72,7 +62,7 @@ public class AdAsyncRequestSet extends APINode {
   @SerializedName("notification_result")
   private AdAsyncRequestSetNotificationResult mNotificationResult = null;
   @SerializedName("notification_status")
-  private EnumNotificationStatus mNotificationStatus = null;
+  private String mNotificationStatus = null;
   @SerializedName("notification_uri")
   private String mNotificationUri = null;
   @SerializedName("owner_id")
@@ -94,6 +84,7 @@ public class AdAsyncRequestSet extends APINode {
 
   public AdAsyncRequestSet(String id, APIContext context) {
     this.mId = id;
+
     this.context = context;
   }
 
@@ -107,12 +98,22 @@ public class AdAsyncRequestSet extends APINode {
     return fetchById(id.toString(), context);
   }
 
+  public static ListenableFuture<AdAsyncRequestSet> fetchByIdAsync(Long id, APIContext context) throws APIException {
+    return fetchByIdAsync(id.toString(), context);
+  }
+
   public static AdAsyncRequestSet fetchById(String id, APIContext context) throws APIException {
-    AdAsyncRequestSet adAsyncRequestSet =
+    return
       new APIRequestGet(id, context)
       .requestAllFields()
       .execute();
-    return adAsyncRequestSet;
+  }
+
+  public static ListenableFuture<AdAsyncRequestSet> fetchByIdAsync(String id, APIContext context) throws APIException {
+    return
+      new APIRequestGet(id, context)
+      .requestAllFields()
+      .executeAsync();
   }
 
   public static APINodeList<AdAsyncRequestSet> fetchByIds(List<String> ids, List<String> fields, APIContext context) throws APIException {
@@ -124,6 +125,14 @@ public class AdAsyncRequestSet extends APINode {
     );
   }
 
+  public static ListenableFuture<APINodeList<AdAsyncRequestSet>> fetchByIdsAsync(List<String> ids, List<String> fields, APIContext context) throws APIException {
+    return
+      new APIRequest(context, "", "/", "GET", AdAsyncRequestSet.getParser())
+        .setParam("ids", APIRequest.joinStringList(ids))
+        .requestFields(fields)
+        .executeAsyncBase();
+  }
+
   private String getPrefixedId() {
     return getId();
   }
@@ -131,7 +140,7 @@ public class AdAsyncRequestSet extends APINode {
   public String getId() {
     return getFieldId().toString();
   }
-  public static AdAsyncRequestSet loadJSON(String json, APIContext context) {
+  public static AdAsyncRequestSet loadJSON(String json, APIContext context, String header) {
     AdAsyncRequestSet adAsyncRequestSet = getGson().fromJson(json, AdAsyncRequestSet.class);
     if (context.isDebug()) {
       JsonParser parser = new JsonParser();
@@ -144,15 +153,16 @@ public class AdAsyncRequestSet extends APINode {
         context.log("[Warning] When parsing response, object is not consistent with JSON:");
         context.log("[JSON]" + o1);
         context.log("[Object]" + o2);
-      };
+      }
     }
     adAsyncRequestSet.context = context;
     adAsyncRequestSet.rawValue = json;
+    adAsyncRequestSet.header = header;
     return adAsyncRequestSet;
   }
 
-  public static APINodeList<AdAsyncRequestSet> parseResponse(String json, APIContext context, APIRequest request) throws MalformedResponseException {
-    APINodeList<AdAsyncRequestSet> adAsyncRequestSets = new APINodeList<AdAsyncRequestSet>(request, json);
+  public static APINodeList<AdAsyncRequestSet> parseResponse(String json, APIContext context, APIRequest request, String header) throws MalformedResponseException {
+    APINodeList<AdAsyncRequestSet> adAsyncRequestSets = new APINodeList<AdAsyncRequestSet>(request, json, header);
     JsonArray arr;
     JsonObject obj;
     JsonParser parser = new JsonParser();
@@ -163,23 +173,32 @@ public class AdAsyncRequestSet extends APINode {
         // First, check if it's a pure JSON Array
         arr = result.getAsJsonArray();
         for (int i = 0; i < arr.size(); i++) {
-          adAsyncRequestSets.add(loadJSON(arr.get(i).getAsJsonObject().toString(), context));
+          adAsyncRequestSets.add(loadJSON(arr.get(i).getAsJsonObject().toString(), context, header));
         };
         return adAsyncRequestSets;
       } else if (result.isJsonObject()) {
         obj = result.getAsJsonObject();
         if (obj.has("data")) {
           if (obj.has("paging")) {
-            JsonObject paging = obj.get("paging").getAsJsonObject().get("cursors").getAsJsonObject();
-            String before = paging.has("before") ? paging.get("before").getAsString() : null;
-            String after = paging.has("after") ? paging.get("after").getAsString() : null;
-            adAsyncRequestSets.setPaging(before, after);
+            JsonObject paging = obj.get("paging").getAsJsonObject();
+            if (paging.has("cursors")) {
+                JsonObject cursors = paging.get("cursors").getAsJsonObject();
+                String before = cursors.has("before") ? cursors.get("before").getAsString() : null;
+                String after = cursors.has("after") ? cursors.get("after").getAsString() : null;
+                adAsyncRequestSets.setCursors(before, after);
+            }
+            String previous = paging.has("previous") ? paging.get("previous").getAsString() : null;
+            String next = paging.has("next") ? paging.get("next").getAsString() : null;
+            adAsyncRequestSets.setPaging(previous, next);
+            if (context.hasAppSecret()) {
+              adAsyncRequestSets.setAppSecret(context.getAppSecretProof());
+            }
           }
           if (obj.get("data").isJsonArray()) {
             // Second, check if it's a JSON array with "data"
             arr = obj.get("data").getAsJsonArray();
             for (int i = 0; i < arr.size(); i++) {
-              adAsyncRequestSets.add(loadJSON(arr.get(i).getAsJsonObject().toString(), context));
+              adAsyncRequestSets.add(loadJSON(arr.get(i).getAsJsonObject().toString(), context, header));
             };
           } else if (obj.get("data").isJsonObject()) {
             // Third, check if it's a JSON object with "data"
@@ -190,13 +209,13 @@ public class AdAsyncRequestSet extends APINode {
                 isRedownload = true;
                 obj = obj.getAsJsonObject(s);
                 for (Map.Entry<String, JsonElement> entry : obj.entrySet()) {
-                  adAsyncRequestSets.add(loadJSON(entry.getValue().toString(), context));
+                  adAsyncRequestSets.add(loadJSON(entry.getValue().toString(), context, header));
                 }
                 break;
               }
             }
             if (!isRedownload) {
-              adAsyncRequestSets.add(loadJSON(obj.toString(), context));
+              adAsyncRequestSets.add(loadJSON(obj.toString(), context, header));
             }
           }
           return adAsyncRequestSets;
@@ -204,7 +223,7 @@ public class AdAsyncRequestSet extends APINode {
           // Fourth, check if it's a map of image objects
           obj = obj.get("images").getAsJsonObject();
           for (Map.Entry<String, JsonElement> entry : obj.entrySet()) {
-              adAsyncRequestSets.add(loadJSON(entry.getValue().toString(), context));
+              adAsyncRequestSets.add(loadJSON(entry.getValue().toString(), context, header));
           }
           return adAsyncRequestSets;
         } else {
@@ -223,7 +242,7 @@ public class AdAsyncRequestSet extends APINode {
               value.getAsJsonObject().get("id") != null &&
               value.getAsJsonObject().get("id").getAsString().equals(key)
             ) {
-              adAsyncRequestSets.add(loadJSON(value.toString(), context));
+              adAsyncRequestSets.add(loadJSON(value.toString(), context, header));
             } else {
               isIdIndexedArray = false;
               break;
@@ -235,7 +254,7 @@ public class AdAsyncRequestSet extends APINode {
 
           // Sixth, check if it's pure JsonObject
           adAsyncRequestSets.clear();
-          adAsyncRequestSets.add(loadJSON(json, context));
+          adAsyncRequestSets.add(loadJSON(json, context, header));
           return adAsyncRequestSets;
         }
       }
@@ -267,8 +286,16 @@ public class AdAsyncRequestSet extends APINode {
     return new APIRequestGetRequests(this.getPrefixedId().toString(), context);
   }
 
+  public APIRequestDelete delete() {
+    return new APIRequestDelete(this.getPrefixedId().toString(), context);
+  }
+
   public APIRequestGet get() {
     return new APIRequestGet(this.getPrefixedId().toString(), context);
+  }
+
+  public APIRequestUpdate update() {
+    return new APIRequestUpdate(this.getPrefixedId().toString(), context);
   }
 
 
@@ -312,7 +339,7 @@ public class AdAsyncRequestSet extends APINode {
     return mNotificationResult;
   }
 
-  public EnumNotificationStatus getFieldNotificationStatus() {
+  public String getFieldNotificationStatus() {
     return mNotificationStatus;
   }
 
@@ -362,8 +389,8 @@ public class AdAsyncRequestSet extends APINode {
     };
 
     @Override
-    public APINodeList<AdAsyncRequest> parseResponse(String response) throws APIException {
-      return AdAsyncRequest.parseResponse(response, getContext(), this);
+    public APINodeList<AdAsyncRequest> parseResponse(String response, String header) throws APIException {
+      return AdAsyncRequest.parseResponse(response, getContext(), this, header);
     }
 
     @Override
@@ -373,9 +400,30 @@ public class AdAsyncRequestSet extends APINode {
 
     @Override
     public APINodeList<AdAsyncRequest> execute(Map<String, Object> extraParams) throws APIException {
-      lastResponse = parseResponse(executeInternal(extraParams));
+      ResponseWrapper rw = executeInternal(extraParams);
+      lastResponse = parseResponse(rw.getBody(),rw.getHeader());
       return lastResponse;
     }
+
+    public ListenableFuture<APINodeList<AdAsyncRequest>> executeAsync() throws APIException {
+      return executeAsync(new HashMap<String, Object>());
+    };
+
+    public ListenableFuture<APINodeList<AdAsyncRequest>> executeAsync(Map<String, Object> extraParams) throws APIException {
+      return Futures.transform(
+        executeAsyncInternal(extraParams),
+        new Function<ResponseWrapper, APINodeList<AdAsyncRequest>>() {
+           public APINodeList<AdAsyncRequest> apply(ResponseWrapper result) {
+             try {
+               return APIRequestGetRequests.this.parseResponse(result.getBody(), result.getHeader());
+             } catch (Exception e) {
+               throw new RuntimeException(e);
+             }
+           }
+         },
+         MoreExecutors.directExecutor()
+      );
+    };
 
     public APIRequestGetRequests(String nodeId, APIContext context) {
       super(context, nodeId, "/requests", "GET", Arrays.asList(PARAMS));
@@ -504,6 +552,111 @@ public class AdAsyncRequestSet extends APINode {
     }
   }
 
+  public static class APIRequestDelete extends APIRequest<APINode> {
+
+    APINode lastResponse = null;
+    @Override
+    public APINode getLastResponse() {
+      return lastResponse;
+    }
+    public static final String[] PARAMS = {
+    };
+
+    public static final String[] FIELDS = {
+    };
+
+    @Override
+    public APINode parseResponse(String response, String header) throws APIException {
+      return APINode.parseResponse(response, getContext(), this, header).head();
+    }
+
+    @Override
+    public APINode execute() throws APIException {
+      return execute(new HashMap<String, Object>());
+    }
+
+    @Override
+    public APINode execute(Map<String, Object> extraParams) throws APIException {
+      ResponseWrapper rw = executeInternal(extraParams);
+      lastResponse = parseResponse(rw.getBody(), rw.getHeader());
+      return lastResponse;
+    }
+
+    public ListenableFuture<APINode> executeAsync() throws APIException {
+      return executeAsync(new HashMap<String, Object>());
+    };
+
+    public ListenableFuture<APINode> executeAsync(Map<String, Object> extraParams) throws APIException {
+      return Futures.transform(
+        executeAsyncInternal(extraParams),
+        new Function<ResponseWrapper, APINode>() {
+           public APINode apply(ResponseWrapper result) {
+             try {
+               return APIRequestDelete.this.parseResponse(result.getBody(), result.getHeader());
+             } catch (Exception e) {
+               throw new RuntimeException(e);
+             }
+           }
+         },
+         MoreExecutors.directExecutor()
+      );
+    };
+
+    public APIRequestDelete(String nodeId, APIContext context) {
+      super(context, nodeId, "/", "DELETE", Arrays.asList(PARAMS));
+    }
+
+    @Override
+    public APIRequestDelete setParam(String param, Object value) {
+      setParamInternal(param, value);
+      return this;
+    }
+
+    @Override
+    public APIRequestDelete setParams(Map<String, Object> params) {
+      setParamsInternal(params);
+      return this;
+    }
+
+
+    public APIRequestDelete requestAllFields () {
+      return this.requestAllFields(true);
+    }
+
+    public APIRequestDelete requestAllFields (boolean value) {
+      for (String field : FIELDS) {
+        this.requestField(field, value);
+      }
+      return this;
+    }
+
+    @Override
+    public APIRequestDelete requestFields (List<String> fields) {
+      return this.requestFields(fields, true);
+    }
+
+    @Override
+    public APIRequestDelete requestFields (List<String> fields, boolean value) {
+      for (String field : fields) {
+        this.requestField(field, value);
+      }
+      return this;
+    }
+
+    @Override
+    public APIRequestDelete requestField (String field) {
+      this.requestField(field, true);
+      return this;
+    }
+
+    @Override
+    public APIRequestDelete requestField (String field, boolean value) {
+      this.requestFieldInternal(field, value);
+      return this;
+    }
+
+  }
+
   public static class APIRequestGet extends APIRequest<AdAsyncRequestSet> {
 
     AdAsyncRequestSet lastResponse = null;
@@ -534,8 +687,8 @@ public class AdAsyncRequestSet extends APINode {
     };
 
     @Override
-    public AdAsyncRequestSet parseResponse(String response) throws APIException {
-      return AdAsyncRequestSet.parseResponse(response, getContext(), this).head();
+    public AdAsyncRequestSet parseResponse(String response, String header) throws APIException {
+      return AdAsyncRequestSet.parseResponse(response, getContext(), this, header).head();
     }
 
     @Override
@@ -545,9 +698,30 @@ public class AdAsyncRequestSet extends APINode {
 
     @Override
     public AdAsyncRequestSet execute(Map<String, Object> extraParams) throws APIException {
-      lastResponse = parseResponse(executeInternal(extraParams));
+      ResponseWrapper rw = executeInternal(extraParams);
+      lastResponse = parseResponse(rw.getBody(), rw.getHeader());
       return lastResponse;
     }
+
+    public ListenableFuture<AdAsyncRequestSet> executeAsync() throws APIException {
+      return executeAsync(new HashMap<String, Object>());
+    };
+
+    public ListenableFuture<AdAsyncRequestSet> executeAsync(Map<String, Object> extraParams) throws APIException {
+      return Futures.transform(
+        executeAsyncInternal(extraParams),
+        new Function<ResponseWrapper, AdAsyncRequestSet>() {
+           public AdAsyncRequestSet apply(ResponseWrapper result) {
+             try {
+               return APIRequestGet.this.parseResponse(result.getBody(), result.getHeader());
+             } catch (Exception e) {
+               throw new RuntimeException(e);
+             }
+           }
+         },
+         MoreExecutors.directExecutor()
+      );
+    };
 
     public APIRequestGet(String nodeId, APIContext context) {
       super(context, nodeId, "/", "GET", Arrays.asList(PARAMS));
@@ -716,37 +890,143 @@ public class AdAsyncRequestSet extends APINode {
     }
   }
 
+  public static class APIRequestUpdate extends APIRequest<AdAsyncRequestSet> {
+
+    AdAsyncRequestSet lastResponse = null;
+    @Override
+    public AdAsyncRequestSet getLastResponse() {
+      return lastResponse;
+    }
+    public static final String[] PARAMS = {
+      "name",
+      "notification_mode",
+      "notification_uri",
+    };
+
+    public static final String[] FIELDS = {
+    };
+
+    @Override
+    public AdAsyncRequestSet parseResponse(String response, String header) throws APIException {
+      return AdAsyncRequestSet.parseResponse(response, getContext(), this, header).head();
+    }
+
+    @Override
+    public AdAsyncRequestSet execute() throws APIException {
+      return execute(new HashMap<String, Object>());
+    }
+
+    @Override
+    public AdAsyncRequestSet execute(Map<String, Object> extraParams) throws APIException {
+      ResponseWrapper rw = executeInternal(extraParams);
+      lastResponse = parseResponse(rw.getBody(), rw.getHeader());
+      return lastResponse;
+    }
+
+    public ListenableFuture<AdAsyncRequestSet> executeAsync() throws APIException {
+      return executeAsync(new HashMap<String, Object>());
+    };
+
+    public ListenableFuture<AdAsyncRequestSet> executeAsync(Map<String, Object> extraParams) throws APIException {
+      return Futures.transform(
+        executeAsyncInternal(extraParams),
+        new Function<ResponseWrapper, AdAsyncRequestSet>() {
+           public AdAsyncRequestSet apply(ResponseWrapper result) {
+             try {
+               return APIRequestUpdate.this.parseResponse(result.getBody(), result.getHeader());
+             } catch (Exception e) {
+               throw new RuntimeException(e);
+             }
+           }
+         },
+         MoreExecutors.directExecutor()
+      );
+    };
+
+    public APIRequestUpdate(String nodeId, APIContext context) {
+      super(context, nodeId, "/", "POST", Arrays.asList(PARAMS));
+    }
+
+    @Override
+    public APIRequestUpdate setParam(String param, Object value) {
+      setParamInternal(param, value);
+      return this;
+    }
+
+    @Override
+    public APIRequestUpdate setParams(Map<String, Object> params) {
+      setParamsInternal(params);
+      return this;
+    }
+
+
+    public APIRequestUpdate setName (String name) {
+      this.setParam("name", name);
+      return this;
+    }
+
+    public APIRequestUpdate setNotificationMode (AdAsyncRequestSet.EnumNotificationMode notificationMode) {
+      this.setParam("notification_mode", notificationMode);
+      return this;
+    }
+    public APIRequestUpdate setNotificationMode (String notificationMode) {
+      this.setParam("notification_mode", notificationMode);
+      return this;
+    }
+
+    public APIRequestUpdate setNotificationUri (String notificationUri) {
+      this.setParam("notification_uri", notificationUri);
+      return this;
+    }
+
+    public APIRequestUpdate requestAllFields () {
+      return this.requestAllFields(true);
+    }
+
+    public APIRequestUpdate requestAllFields (boolean value) {
+      for (String field : FIELDS) {
+        this.requestField(field, value);
+      }
+      return this;
+    }
+
+    @Override
+    public APIRequestUpdate requestFields (List<String> fields) {
+      return this.requestFields(fields, true);
+    }
+
+    @Override
+    public APIRequestUpdate requestFields (List<String> fields, boolean value) {
+      for (String field : fields) {
+        this.requestField(field, value);
+      }
+      return this;
+    }
+
+    @Override
+    public APIRequestUpdate requestField (String field) {
+      this.requestField(field, true);
+      return this;
+    }
+
+    @Override
+    public APIRequestUpdate requestField (String field, boolean value) {
+      this.requestFieldInternal(field, value);
+      return this;
+    }
+
+  }
+
   public static enum EnumNotificationMode {
       @SerializedName("OFF")
       VALUE_OFF("OFF"),
       @SerializedName("ON_COMPLETE")
       VALUE_ON_COMPLETE("ON_COMPLETE"),
-      NULL(null);
+      ;
 
       private String value;
 
       private EnumNotificationMode(String value) {
-        this.value = value;
-      }
-
-      @Override
-      public String toString() {
-        return value;
-      }
-  }
-
-  public static enum EnumNotificationStatus {
-      @SerializedName("NOT_SENT")
-      VALUE_NOT_SENT("NOT_SENT"),
-      @SerializedName("SENDING")
-      VALUE_SENDING("SENDING"),
-      @SerializedName("SENT")
-      VALUE_SENT("SENT"),
-      NULL(null);
-
-      private String value;
-
-      private EnumNotificationStatus(String value) {
         this.value = value;
       }
 
@@ -794,8 +1074,8 @@ public class AdAsyncRequestSet extends APINode {
 
   public static APIRequest.ResponseParser<AdAsyncRequestSet> getParser() {
     return new APIRequest.ResponseParser<AdAsyncRequestSet>() {
-      public APINodeList<AdAsyncRequestSet> parseResponse(String response, APIContext context, APIRequest<AdAsyncRequestSet> request) throws MalformedResponseException {
-        return AdAsyncRequestSet.parseResponse(response, context, request);
+      public APINodeList<AdAsyncRequestSet> parseResponse(String response, APIContext context, APIRequest<AdAsyncRequestSet> request, String header) throws MalformedResponseException {
+        return AdAsyncRequestSet.parseResponse(response, context, request, header);
       }
     };
   }

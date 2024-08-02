@@ -1,24 +1,9 @@
-/**
- * Copyright (c) 2015-present, Facebook, Inc. All rights reserved.
+/*
+ * Copyright (c) Meta Platforms, Inc. and affiliates.
+ * All rights reserved.
  *
- * You are hereby granted a non-exclusive, worldwide, royalty-free license to
- * use, copy, modify, and distribute this software in source code or binary
- * form for use in connection with the web services and APIs provided by
- * Facebook.
- *
- * As with any software that integrates with the Facebook platform, your use
- * of this software is subject to the Facebook Developer Principles and
- * Policies [http://developers.facebook.com/policy/]. This copyright notice
- * shall be included in all copies or substantial portions of the software.
- *
- * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
- * IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
- * FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL
- * THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
- * LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING
- * FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
- * DEALINGS IN THE SOFTWARE.
- *
+ * This source code is licensed under the license found in the
+ * LICENSE file in the root directory of this source tree.
  */
 
 package com.facebook.ads.sdk;
@@ -31,6 +16,11 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
+import com.google.common.base.Function;
+import com.google.common.util.concurrent.Futures;
+import com.google.common.util.concurrent.ListenableFuture;
+import com.google.common.util.concurrent.MoreExecutors;
+import com.google.common.util.concurrent.SettableFuture;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonArray;
 import com.google.gson.annotations.SerializedName;
@@ -51,6 +41,8 @@ import com.facebook.ads.sdk.APIException.MalformedResponseException;
  *
  */
 public class AdCreativeLinkDataImageOverlaySpec extends APINode {
+  @SerializedName("custom_text_type")
+  private EnumCustomTextType mCustomTextType = null;
   @SerializedName("float_with_margin")
   private Boolean mFloatWithMargin = null;
   @SerializedName("overlay_template")
@@ -73,7 +65,7 @@ public class AdCreativeLinkDataImageOverlaySpec extends APINode {
   public String getId() {
     return null;
   }
-  public static AdCreativeLinkDataImageOverlaySpec loadJSON(String json, APIContext context) {
+  public static AdCreativeLinkDataImageOverlaySpec loadJSON(String json, APIContext context, String header) {
     AdCreativeLinkDataImageOverlaySpec adCreativeLinkDataImageOverlaySpec = getGson().fromJson(json, AdCreativeLinkDataImageOverlaySpec.class);
     if (context.isDebug()) {
       JsonParser parser = new JsonParser();
@@ -86,15 +78,16 @@ public class AdCreativeLinkDataImageOverlaySpec extends APINode {
         context.log("[Warning] When parsing response, object is not consistent with JSON:");
         context.log("[JSON]" + o1);
         context.log("[Object]" + o2);
-      };
+      }
     }
     adCreativeLinkDataImageOverlaySpec.context = context;
     adCreativeLinkDataImageOverlaySpec.rawValue = json;
+    adCreativeLinkDataImageOverlaySpec.header = header;
     return adCreativeLinkDataImageOverlaySpec;
   }
 
-  public static APINodeList<AdCreativeLinkDataImageOverlaySpec> parseResponse(String json, APIContext context, APIRequest request) throws MalformedResponseException {
-    APINodeList<AdCreativeLinkDataImageOverlaySpec> adCreativeLinkDataImageOverlaySpecs = new APINodeList<AdCreativeLinkDataImageOverlaySpec>(request, json);
+  public static APINodeList<AdCreativeLinkDataImageOverlaySpec> parseResponse(String json, APIContext context, APIRequest request, String header) throws MalformedResponseException {
+    APINodeList<AdCreativeLinkDataImageOverlaySpec> adCreativeLinkDataImageOverlaySpecs = new APINodeList<AdCreativeLinkDataImageOverlaySpec>(request, json, header);
     JsonArray arr;
     JsonObject obj;
     JsonParser parser = new JsonParser();
@@ -105,23 +98,32 @@ public class AdCreativeLinkDataImageOverlaySpec extends APINode {
         // First, check if it's a pure JSON Array
         arr = result.getAsJsonArray();
         for (int i = 0; i < arr.size(); i++) {
-          adCreativeLinkDataImageOverlaySpecs.add(loadJSON(arr.get(i).getAsJsonObject().toString(), context));
+          adCreativeLinkDataImageOverlaySpecs.add(loadJSON(arr.get(i).getAsJsonObject().toString(), context, header));
         };
         return adCreativeLinkDataImageOverlaySpecs;
       } else if (result.isJsonObject()) {
         obj = result.getAsJsonObject();
         if (obj.has("data")) {
           if (obj.has("paging")) {
-            JsonObject paging = obj.get("paging").getAsJsonObject().get("cursors").getAsJsonObject();
-            String before = paging.has("before") ? paging.get("before").getAsString() : null;
-            String after = paging.has("after") ? paging.get("after").getAsString() : null;
-            adCreativeLinkDataImageOverlaySpecs.setPaging(before, after);
+            JsonObject paging = obj.get("paging").getAsJsonObject();
+            if (paging.has("cursors")) {
+                JsonObject cursors = paging.get("cursors").getAsJsonObject();
+                String before = cursors.has("before") ? cursors.get("before").getAsString() : null;
+                String after = cursors.has("after") ? cursors.get("after").getAsString() : null;
+                adCreativeLinkDataImageOverlaySpecs.setCursors(before, after);
+            }
+            String previous = paging.has("previous") ? paging.get("previous").getAsString() : null;
+            String next = paging.has("next") ? paging.get("next").getAsString() : null;
+            adCreativeLinkDataImageOverlaySpecs.setPaging(previous, next);
+            if (context.hasAppSecret()) {
+              adCreativeLinkDataImageOverlaySpecs.setAppSecret(context.getAppSecretProof());
+            }
           }
           if (obj.get("data").isJsonArray()) {
             // Second, check if it's a JSON array with "data"
             arr = obj.get("data").getAsJsonArray();
             for (int i = 0; i < arr.size(); i++) {
-              adCreativeLinkDataImageOverlaySpecs.add(loadJSON(arr.get(i).getAsJsonObject().toString(), context));
+              adCreativeLinkDataImageOverlaySpecs.add(loadJSON(arr.get(i).getAsJsonObject().toString(), context, header));
             };
           } else if (obj.get("data").isJsonObject()) {
             // Third, check if it's a JSON object with "data"
@@ -132,13 +134,13 @@ public class AdCreativeLinkDataImageOverlaySpec extends APINode {
                 isRedownload = true;
                 obj = obj.getAsJsonObject(s);
                 for (Map.Entry<String, JsonElement> entry : obj.entrySet()) {
-                  adCreativeLinkDataImageOverlaySpecs.add(loadJSON(entry.getValue().toString(), context));
+                  adCreativeLinkDataImageOverlaySpecs.add(loadJSON(entry.getValue().toString(), context, header));
                 }
                 break;
               }
             }
             if (!isRedownload) {
-              adCreativeLinkDataImageOverlaySpecs.add(loadJSON(obj.toString(), context));
+              adCreativeLinkDataImageOverlaySpecs.add(loadJSON(obj.toString(), context, header));
             }
           }
           return adCreativeLinkDataImageOverlaySpecs;
@@ -146,7 +148,7 @@ public class AdCreativeLinkDataImageOverlaySpec extends APINode {
           // Fourth, check if it's a map of image objects
           obj = obj.get("images").getAsJsonObject();
           for (Map.Entry<String, JsonElement> entry : obj.entrySet()) {
-              adCreativeLinkDataImageOverlaySpecs.add(loadJSON(entry.getValue().toString(), context));
+              adCreativeLinkDataImageOverlaySpecs.add(loadJSON(entry.getValue().toString(), context, header));
           }
           return adCreativeLinkDataImageOverlaySpecs;
         } else {
@@ -165,7 +167,7 @@ public class AdCreativeLinkDataImageOverlaySpec extends APINode {
               value.getAsJsonObject().get("id") != null &&
               value.getAsJsonObject().get("id").getAsString().equals(key)
             ) {
-              adCreativeLinkDataImageOverlaySpecs.add(loadJSON(value.toString(), context));
+              adCreativeLinkDataImageOverlaySpecs.add(loadJSON(value.toString(), context, header));
             } else {
               isIdIndexedArray = false;
               break;
@@ -177,7 +179,7 @@ public class AdCreativeLinkDataImageOverlaySpec extends APINode {
 
           // Sixth, check if it's pure JsonObject
           adCreativeLinkDataImageOverlaySpecs.clear();
-          adCreativeLinkDataImageOverlaySpecs.add(loadJSON(json, context));
+          adCreativeLinkDataImageOverlaySpecs.add(loadJSON(json, context, header));
           return adCreativeLinkDataImageOverlaySpecs;
         }
       }
@@ -205,6 +207,15 @@ public class AdCreativeLinkDataImageOverlaySpec extends APINode {
     return getGson().toJson(this);
   }
 
+
+  public EnumCustomTextType getFieldCustomTextType() {
+    return mCustomTextType;
+  }
+
+  public AdCreativeLinkDataImageOverlaySpec setFieldCustomTextType(EnumCustomTextType value) {
+    this.mCustomTextType = value;
+    return this;
+  }
 
   public Boolean getFieldFloatWithMargin() {
     return mFloatWithMargin;
@@ -271,14 +282,33 @@ public class AdCreativeLinkDataImageOverlaySpec extends APINode {
 
 
 
+  public static enum EnumCustomTextType {
+      @SerializedName("free_shipping")
+      VALUE_FREE_SHIPPING("free_shipping"),
+      @SerializedName("popular")
+      VALUE_POPULAR("popular"),
+      ;
+
+      private String value;
+
+      private EnumCustomTextType(String value) {
+        this.value = value;
+      }
+
+      @Override
+      public String toString() {
+        return value;
+      }
+  }
+
   public static enum EnumOverlayTemplate {
-      @SerializedName("pill_with_text")
-      VALUE_PILL_WITH_TEXT("pill_with_text"),
       @SerializedName("circle_with_text")
       VALUE_CIRCLE_WITH_TEXT("circle_with_text"),
+      @SerializedName("pill_with_text")
+      VALUE_PILL_WITH_TEXT("pill_with_text"),
       @SerializedName("triangle_with_text")
       VALUE_TRIANGLE_WITH_TEXT("triangle_with_text"),
-      NULL(null);
+      ;
 
       private String value;
 
@@ -293,15 +323,15 @@ public class AdCreativeLinkDataImageOverlaySpec extends APINode {
   }
 
   public static enum EnumPosition {
-      @SerializedName("top_left")
-      VALUE_TOP_LEFT("top_left"),
-      @SerializedName("top_right")
-      VALUE_TOP_RIGHT("top_right"),
       @SerializedName("bottom_left")
       VALUE_BOTTOM_LEFT("bottom_left"),
       @SerializedName("bottom_right")
       VALUE_BOTTOM_RIGHT("bottom_right"),
-      NULL(null);
+      @SerializedName("top_left")
+      VALUE_TOP_LEFT("top_left"),
+      @SerializedName("top_right")
+      VALUE_TOP_RIGHT("top_right"),
+      ;
 
       private String value;
 
@@ -318,8 +348,12 @@ public class AdCreativeLinkDataImageOverlaySpec extends APINode {
   public static enum EnumTextFont {
       @SerializedName("droid_serif_regular")
       VALUE_DROID_SERIF_REGULAR("droid_serif_regular"),
+      @SerializedName("dynads_hybrid_bold")
+      VALUE_DYNADS_HYBRID_BOLD("dynads_hybrid_bold"),
       @SerializedName("lato_regular")
       VALUE_LATO_REGULAR("lato_regular"),
+      @SerializedName("noto_sans_regular")
+      VALUE_NOTO_SANS_REGULAR("noto_sans_regular"),
       @SerializedName("nunito_sans_bold")
       VALUE_NUNITO_SANS_BOLD("nunito_sans_bold"),
       @SerializedName("open_sans_bold")
@@ -328,15 +362,11 @@ public class AdCreativeLinkDataImageOverlaySpec extends APINode {
       VALUE_OPEN_SANS_CONDENSED_BOLD("open_sans_condensed_bold"),
       @SerializedName("pt_serif_bold")
       VALUE_PT_SERIF_BOLD("pt_serif_bold"),
-      @SerializedName("roboto_medium")
-      VALUE_ROBOTO_MEDIUM("roboto_medium"),
       @SerializedName("roboto_condensed_regular")
       VALUE_ROBOTO_CONDENSED_REGULAR("roboto_condensed_regular"),
-      @SerializedName("noto_sans_regular")
-      VALUE_NOTO_SANS_REGULAR("noto_sans_regular"),
-      @SerializedName("dynads_hybrid_bold")
-      VALUE_DYNADS_HYBRID_BOLD("dynads_hybrid_bold"),
-      NULL(null);
+      @SerializedName("roboto_medium")
+      VALUE_ROBOTO_MEDIUM("roboto_medium"),
+      ;
 
       private String value;
 
@@ -351,13 +381,27 @@ public class AdCreativeLinkDataImageOverlaySpec extends APINode {
   }
 
   public static enum EnumTextType {
-      @SerializedName("price")
-      VALUE_PRICE("price"),
-      @SerializedName("strikethrough_price")
-      VALUE_STRIKETHROUGH_PRICE("strikethrough_price"),
+      @SerializedName("automated_personalize")
+      VALUE_AUTOMATED_PERSONALIZE("automated_personalize"),
+      @SerializedName("custom")
+      VALUE_CUSTOM("custom"),
+      @SerializedName("disclaimer")
+      VALUE_DISCLAIMER("disclaimer"),
+      @SerializedName("from_price")
+      VALUE_FROM_PRICE("from_price"),
+      @SerializedName("guest_rating")
+      VALUE_GUEST_RATING("guest_rating"),
       @SerializedName("percentage_off")
       VALUE_PERCENTAGE_OFF("percentage_off"),
-      NULL(null);
+      @SerializedName("price")
+      VALUE_PRICE("price"),
+      @SerializedName("star_rating")
+      VALUE_STAR_RATING("star_rating"),
+      @SerializedName("strikethrough_price")
+      VALUE_STRIKETHROUGH_PRICE("strikethrough_price"),
+      @SerializedName("sustainable")
+      VALUE_SUSTAINABLE("sustainable"),
+      ;
 
       private String value;
 
@@ -372,39 +416,39 @@ public class AdCreativeLinkDataImageOverlaySpec extends APINode {
   }
 
   public static enum EnumThemeColor {
-      @SerializedName("background_e50900_text_ffffff")
-      VALUE_BACKGROUND_E50900_TEXT_FFFFFF("background_e50900_text_ffffff"),
-      @SerializedName("background_f78400_text_ffffff")
-      VALUE_BACKGROUND_F78400_TEXT_FFFFFF("background_f78400_text_ffffff"),
-      @SerializedName("background_00af4c_text_ffffff")
-      VALUE_BACKGROUND_00AF4C_TEXT_FFFFFF("background_00af4c_text_ffffff"),
-      @SerializedName("background_0090ff_text_ffffff")
-      VALUE_BACKGROUND_0090FF_TEXT_FFFFFF("background_0090ff_text_ffffff"),
-      @SerializedName("background_755dde_text_ffffff")
-      VALUE_BACKGROUND_755DDE_TEXT_FFFFFF("background_755dde_text_ffffff"),
-      @SerializedName("background_f23474_text_ffffff")
-      VALUE_BACKGROUND_F23474_TEXT_FFFFFF("background_f23474_text_ffffff"),
-      @SerializedName("background_595959_text_ffffff")
-      VALUE_BACKGROUND_595959_TEXT_FFFFFF("background_595959_text_ffffff"),
       @SerializedName("background_000000_text_ffffff")
       VALUE_BACKGROUND_000000_TEXT_FFFFFF("background_000000_text_ffffff"),
-      @SerializedName("background_ffffff_text_c91b00")
-      VALUE_BACKGROUND_FFFFFF_TEXT_C91B00("background_ffffff_text_c91b00"),
-      @SerializedName("background_ffffff_text_f78400")
-      VALUE_BACKGROUND_FFFFFF_TEXT_F78400("background_ffffff_text_f78400"),
-      @SerializedName("background_ffffff_text_009c2a")
-      VALUE_BACKGROUND_FFFFFF_TEXT_009C2A("background_ffffff_text_009c2a"),
-      @SerializedName("background_ffffff_text_007ad0")
-      VALUE_BACKGROUND_FFFFFF_TEXT_007AD0("background_ffffff_text_007ad0"),
-      @SerializedName("background_ffffff_text_755dde")
-      VALUE_BACKGROUND_FFFFFF_TEXT_755DDE("background_ffffff_text_755dde"),
-      @SerializedName("background_ffffff_text_f23474")
-      VALUE_BACKGROUND_FFFFFF_TEXT_F23474("background_ffffff_text_f23474"),
-      @SerializedName("background_ffffff_text_646464")
-      VALUE_BACKGROUND_FFFFFF_TEXT_646464("background_ffffff_text_646464"),
+      @SerializedName("background_0090ff_text_ffffff")
+      VALUE_BACKGROUND_0090FF_TEXT_FFFFFF("background_0090ff_text_ffffff"),
+      @SerializedName("background_00af4c_text_ffffff")
+      VALUE_BACKGROUND_00AF4C_TEXT_FFFFFF("background_00af4c_text_ffffff"),
+      @SerializedName("background_595959_text_ffffff")
+      VALUE_BACKGROUND_595959_TEXT_FFFFFF("background_595959_text_ffffff"),
+      @SerializedName("background_755dde_text_ffffff")
+      VALUE_BACKGROUND_755DDE_TEXT_FFFFFF("background_755dde_text_ffffff"),
+      @SerializedName("background_e50900_text_ffffff")
+      VALUE_BACKGROUND_E50900_TEXT_FFFFFF("background_e50900_text_ffffff"),
+      @SerializedName("background_f23474_text_ffffff")
+      VALUE_BACKGROUND_F23474_TEXT_FFFFFF("background_f23474_text_ffffff"),
+      @SerializedName("background_f78400_text_ffffff")
+      VALUE_BACKGROUND_F78400_TEXT_FFFFFF("background_f78400_text_ffffff"),
       @SerializedName("background_ffffff_text_000000")
       VALUE_BACKGROUND_FFFFFF_TEXT_000000("background_ffffff_text_000000"),
-      NULL(null);
+      @SerializedName("background_ffffff_text_007ad0")
+      VALUE_BACKGROUND_FFFFFF_TEXT_007AD0("background_ffffff_text_007ad0"),
+      @SerializedName("background_ffffff_text_009c2a")
+      VALUE_BACKGROUND_FFFFFF_TEXT_009C2A("background_ffffff_text_009c2a"),
+      @SerializedName("background_ffffff_text_646464")
+      VALUE_BACKGROUND_FFFFFF_TEXT_646464("background_ffffff_text_646464"),
+      @SerializedName("background_ffffff_text_755dde")
+      VALUE_BACKGROUND_FFFFFF_TEXT_755DDE("background_ffffff_text_755dde"),
+      @SerializedName("background_ffffff_text_c91b00")
+      VALUE_BACKGROUND_FFFFFF_TEXT_C91B00("background_ffffff_text_c91b00"),
+      @SerializedName("background_ffffff_text_f23474")
+      VALUE_BACKGROUND_FFFFFF_TEXT_F23474("background_ffffff_text_f23474"),
+      @SerializedName("background_ffffff_text_f78400")
+      VALUE_BACKGROUND_FFFFFF_TEXT_F78400("background_ffffff_text_f78400"),
+      ;
 
       private String value;
 
@@ -433,6 +477,7 @@ public class AdCreativeLinkDataImageOverlaySpec extends APINode {
   }
 
   public AdCreativeLinkDataImageOverlaySpec copyFrom(AdCreativeLinkDataImageOverlaySpec instance) {
+    this.mCustomTextType = instance.mCustomTextType;
     this.mFloatWithMargin = instance.mFloatWithMargin;
     this.mOverlayTemplate = instance.mOverlayTemplate;
     this.mPosition = instance.mPosition;
@@ -447,8 +492,8 @@ public class AdCreativeLinkDataImageOverlaySpec extends APINode {
 
   public static APIRequest.ResponseParser<AdCreativeLinkDataImageOverlaySpec> getParser() {
     return new APIRequest.ResponseParser<AdCreativeLinkDataImageOverlaySpec>() {
-      public APINodeList<AdCreativeLinkDataImageOverlaySpec> parseResponse(String response, APIContext context, APIRequest<AdCreativeLinkDataImageOverlaySpec> request) throws MalformedResponseException {
-        return AdCreativeLinkDataImageOverlaySpec.parseResponse(response, context, request);
+      public APINodeList<AdCreativeLinkDataImageOverlaySpec> parseResponse(String response, APIContext context, APIRequest<AdCreativeLinkDataImageOverlaySpec> request, String header) throws MalformedResponseException {
+        return AdCreativeLinkDataImageOverlaySpec.parseResponse(response, context, request, header);
       }
     };
   }

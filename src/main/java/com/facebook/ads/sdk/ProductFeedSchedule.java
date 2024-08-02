@@ -1,24 +1,9 @@
-/**
- * Copyright (c) 2015-present, Facebook, Inc. All rights reserved.
+/*
+ * Copyright (c) Meta Platforms, Inc. and affiliates.
+ * All rights reserved.
  *
- * You are hereby granted a non-exclusive, worldwide, royalty-free license to
- * use, copy, modify, and distribute this software in source code or binary
- * form for use in connection with the web services and APIs provided by
- * Facebook.
- *
- * As with any software that integrates with the Facebook platform, your use
- * of this software is subject to the Facebook Developer Principles and
- * Policies [http://developers.facebook.com/policy/]. This copyright notice
- * shall be included in all copies or substantial portions of the software.
- *
- * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
- * IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
- * FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL
- * THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
- * LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING
- * FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
- * DEALINGS IN THE SOFTWARE.
- *
+ * This source code is licensed under the license found in the
+ * LICENSE file in the root directory of this source tree.
  */
 
 package com.facebook.ads.sdk;
@@ -31,6 +16,11 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
+import com.google.common.base.Function;
+import com.google.common.util.concurrent.Futures;
+import com.google.common.util.concurrent.ListenableFuture;
+import com.google.common.util.concurrent.MoreExecutors;
+import com.google.common.util.concurrent.SettableFuture;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonArray;
 import com.google.gson.annotations.SerializedName;
@@ -54,9 +44,11 @@ public class ProductFeedSchedule extends APINode {
   @SerializedName("day_of_month")
   private Long mDayOfMonth = null;
   @SerializedName("day_of_week")
-  private EnumDayOfWeek mDayOfWeek = null;
+  private String mDayOfWeek = null;
   @SerializedName("hour")
   private Long mHour = null;
+  @SerializedName("id")
+  private String mId = null;
   @SerializedName("interval")
   private EnumInterval mInterval = null;
   @SerializedName("interval_count")
@@ -71,13 +63,72 @@ public class ProductFeedSchedule extends APINode {
   private String mUsername = null;
   protected static Gson gson = null;
 
-  public ProductFeedSchedule() {
+  ProductFeedSchedule() {
+  }
+
+  public ProductFeedSchedule(Long id, APIContext context) {
+    this(id.toString(), context);
+  }
+
+  public ProductFeedSchedule(String id, APIContext context) {
+    this.mId = id;
+
+    this.context = context;
+  }
+
+  public ProductFeedSchedule fetch() throws APIException{
+    ProductFeedSchedule newInstance = fetchById(this.getPrefixedId().toString(), this.context);
+    this.copyFrom(newInstance);
+    return this;
+  }
+
+  public static ProductFeedSchedule fetchById(Long id, APIContext context) throws APIException {
+    return fetchById(id.toString(), context);
+  }
+
+  public static ListenableFuture<ProductFeedSchedule> fetchByIdAsync(Long id, APIContext context) throws APIException {
+    return fetchByIdAsync(id.toString(), context);
+  }
+
+  public static ProductFeedSchedule fetchById(String id, APIContext context) throws APIException {
+    return
+      new APIRequestGet(id, context)
+      .requestAllFields()
+      .execute();
+  }
+
+  public static ListenableFuture<ProductFeedSchedule> fetchByIdAsync(String id, APIContext context) throws APIException {
+    return
+      new APIRequestGet(id, context)
+      .requestAllFields()
+      .executeAsync();
+  }
+
+  public static APINodeList<ProductFeedSchedule> fetchByIds(List<String> ids, List<String> fields, APIContext context) throws APIException {
+    return (APINodeList<ProductFeedSchedule>)(
+      new APIRequest<ProductFeedSchedule>(context, "", "/", "GET", ProductFeedSchedule.getParser())
+        .setParam("ids", APIRequest.joinStringList(ids))
+        .requestFields(fields)
+        .execute()
+    );
+  }
+
+  public static ListenableFuture<APINodeList<ProductFeedSchedule>> fetchByIdsAsync(List<String> ids, List<String> fields, APIContext context) throws APIException {
+    return
+      new APIRequest(context, "", "/", "GET", ProductFeedSchedule.getParser())
+        .setParam("ids", APIRequest.joinStringList(ids))
+        .requestFields(fields)
+        .executeAsyncBase();
+  }
+
+  private String getPrefixedId() {
+    return getId();
   }
 
   public String getId() {
-    return null;
+    return getFieldId().toString();
   }
-  public static ProductFeedSchedule loadJSON(String json, APIContext context) {
+  public static ProductFeedSchedule loadJSON(String json, APIContext context, String header) {
     ProductFeedSchedule productFeedSchedule = getGson().fromJson(json, ProductFeedSchedule.class);
     if (context.isDebug()) {
       JsonParser parser = new JsonParser();
@@ -90,15 +141,16 @@ public class ProductFeedSchedule extends APINode {
         context.log("[Warning] When parsing response, object is not consistent with JSON:");
         context.log("[JSON]" + o1);
         context.log("[Object]" + o2);
-      };
+      }
     }
     productFeedSchedule.context = context;
     productFeedSchedule.rawValue = json;
+    productFeedSchedule.header = header;
     return productFeedSchedule;
   }
 
-  public static APINodeList<ProductFeedSchedule> parseResponse(String json, APIContext context, APIRequest request) throws MalformedResponseException {
-    APINodeList<ProductFeedSchedule> productFeedSchedules = new APINodeList<ProductFeedSchedule>(request, json);
+  public static APINodeList<ProductFeedSchedule> parseResponse(String json, APIContext context, APIRequest request, String header) throws MalformedResponseException {
+    APINodeList<ProductFeedSchedule> productFeedSchedules = new APINodeList<ProductFeedSchedule>(request, json, header);
     JsonArray arr;
     JsonObject obj;
     JsonParser parser = new JsonParser();
@@ -109,23 +161,32 @@ public class ProductFeedSchedule extends APINode {
         // First, check if it's a pure JSON Array
         arr = result.getAsJsonArray();
         for (int i = 0; i < arr.size(); i++) {
-          productFeedSchedules.add(loadJSON(arr.get(i).getAsJsonObject().toString(), context));
+          productFeedSchedules.add(loadJSON(arr.get(i).getAsJsonObject().toString(), context, header));
         };
         return productFeedSchedules;
       } else if (result.isJsonObject()) {
         obj = result.getAsJsonObject();
         if (obj.has("data")) {
           if (obj.has("paging")) {
-            JsonObject paging = obj.get("paging").getAsJsonObject().get("cursors").getAsJsonObject();
-            String before = paging.has("before") ? paging.get("before").getAsString() : null;
-            String after = paging.has("after") ? paging.get("after").getAsString() : null;
-            productFeedSchedules.setPaging(before, after);
+            JsonObject paging = obj.get("paging").getAsJsonObject();
+            if (paging.has("cursors")) {
+                JsonObject cursors = paging.get("cursors").getAsJsonObject();
+                String before = cursors.has("before") ? cursors.get("before").getAsString() : null;
+                String after = cursors.has("after") ? cursors.get("after").getAsString() : null;
+                productFeedSchedules.setCursors(before, after);
+            }
+            String previous = paging.has("previous") ? paging.get("previous").getAsString() : null;
+            String next = paging.has("next") ? paging.get("next").getAsString() : null;
+            productFeedSchedules.setPaging(previous, next);
+            if (context.hasAppSecret()) {
+              productFeedSchedules.setAppSecret(context.getAppSecretProof());
+            }
           }
           if (obj.get("data").isJsonArray()) {
             // Second, check if it's a JSON array with "data"
             arr = obj.get("data").getAsJsonArray();
             for (int i = 0; i < arr.size(); i++) {
-              productFeedSchedules.add(loadJSON(arr.get(i).getAsJsonObject().toString(), context));
+              productFeedSchedules.add(loadJSON(arr.get(i).getAsJsonObject().toString(), context, header));
             };
           } else if (obj.get("data").isJsonObject()) {
             // Third, check if it's a JSON object with "data"
@@ -136,13 +197,13 @@ public class ProductFeedSchedule extends APINode {
                 isRedownload = true;
                 obj = obj.getAsJsonObject(s);
                 for (Map.Entry<String, JsonElement> entry : obj.entrySet()) {
-                  productFeedSchedules.add(loadJSON(entry.getValue().toString(), context));
+                  productFeedSchedules.add(loadJSON(entry.getValue().toString(), context, header));
                 }
                 break;
               }
             }
             if (!isRedownload) {
-              productFeedSchedules.add(loadJSON(obj.toString(), context));
+              productFeedSchedules.add(loadJSON(obj.toString(), context, header));
             }
           }
           return productFeedSchedules;
@@ -150,7 +211,7 @@ public class ProductFeedSchedule extends APINode {
           // Fourth, check if it's a map of image objects
           obj = obj.get("images").getAsJsonObject();
           for (Map.Entry<String, JsonElement> entry : obj.entrySet()) {
-              productFeedSchedules.add(loadJSON(entry.getValue().toString(), context));
+              productFeedSchedules.add(loadJSON(entry.getValue().toString(), context, header));
           }
           return productFeedSchedules;
         } else {
@@ -169,7 +230,7 @@ public class ProductFeedSchedule extends APINode {
               value.getAsJsonObject().get("id") != null &&
               value.getAsJsonObject().get("id").getAsString().equals(key)
             ) {
-              productFeedSchedules.add(loadJSON(value.toString(), context));
+              productFeedSchedules.add(loadJSON(value.toString(), context, header));
             } else {
               isIdIndexedArray = false;
               break;
@@ -181,7 +242,7 @@ public class ProductFeedSchedule extends APINode {
 
           // Sixth, check if it's pure JsonObject
           productFeedSchedules.clear();
-          productFeedSchedules.add(loadJSON(json, context));
+          productFeedSchedules.add(loadJSON(json, context, header));
           return productFeedSchedules;
         }
       }
@@ -209,129 +270,248 @@ public class ProductFeedSchedule extends APINode {
     return getGson().toJson(this);
   }
 
+  public APIRequestGet get() {
+    return new APIRequestGet(this.getPrefixedId().toString(), context);
+  }
+
 
   public Long getFieldDayOfMonth() {
     return mDayOfMonth;
   }
 
-  public ProductFeedSchedule setFieldDayOfMonth(Long value) {
-    this.mDayOfMonth = value;
-    return this;
-  }
-
-  public EnumDayOfWeek getFieldDayOfWeek() {
+  public String getFieldDayOfWeek() {
     return mDayOfWeek;
-  }
-
-  public ProductFeedSchedule setFieldDayOfWeek(EnumDayOfWeek value) {
-    this.mDayOfWeek = value;
-    return this;
   }
 
   public Long getFieldHour() {
     return mHour;
   }
 
-  public ProductFeedSchedule setFieldHour(Long value) {
-    this.mHour = value;
-    return this;
+  public String getFieldId() {
+    return mId;
   }
 
   public EnumInterval getFieldInterval() {
     return mInterval;
   }
 
-  public ProductFeedSchedule setFieldInterval(EnumInterval value) {
-    this.mInterval = value;
-    return this;
-  }
-
   public Long getFieldIntervalCount() {
     return mIntervalCount;
-  }
-
-  public ProductFeedSchedule setFieldIntervalCount(Long value) {
-    this.mIntervalCount = value;
-    return this;
   }
 
   public Long getFieldMinute() {
     return mMinute;
   }
 
-  public ProductFeedSchedule setFieldMinute(Long value) {
-    this.mMinute = value;
-    return this;
-  }
-
   public String getFieldTimezone() {
     return mTimezone;
-  }
-
-  public ProductFeedSchedule setFieldTimezone(String value) {
-    this.mTimezone = value;
-    return this;
   }
 
   public String getFieldUrl() {
     return mUrl;
   }
 
-  public ProductFeedSchedule setFieldUrl(String value) {
-    this.mUrl = value;
-    return this;
-  }
-
   public String getFieldUsername() {
     return mUsername;
   }
 
-  public ProductFeedSchedule setFieldUsername(String value) {
-    this.mUsername = value;
-    return this;
-  }
 
 
+  public static class APIRequestGet extends APIRequest<ProductFeedSchedule> {
 
-  public static enum EnumDayOfWeek {
-      @SerializedName("SUNDAY")
-      VALUE_SUNDAY("SUNDAY"),
-      @SerializedName("MONDAY")
-      VALUE_MONDAY("MONDAY"),
-      @SerializedName("TUESDAY")
-      VALUE_TUESDAY("TUESDAY"),
-      @SerializedName("WEDNESDAY")
-      VALUE_WEDNESDAY("WEDNESDAY"),
-      @SerializedName("THURSDAY")
-      VALUE_THURSDAY("THURSDAY"),
-      @SerializedName("FRIDAY")
-      VALUE_FRIDAY("FRIDAY"),
-      @SerializedName("SATURDAY")
-      VALUE_SATURDAY("SATURDAY"),
-      NULL(null);
+    ProductFeedSchedule lastResponse = null;
+    @Override
+    public ProductFeedSchedule getLastResponse() {
+      return lastResponse;
+    }
+    public static final String[] PARAMS = {
+    };
 
-      private String value;
+    public static final String[] FIELDS = {
+      "day_of_month",
+      "day_of_week",
+      "hour",
+      "id",
+      "interval",
+      "interval_count",
+      "minute",
+      "timezone",
+      "url",
+      "username",
+    };
 
-      private EnumDayOfWeek(String value) {
-        this.value = value;
+    @Override
+    public ProductFeedSchedule parseResponse(String response, String header) throws APIException {
+      return ProductFeedSchedule.parseResponse(response, getContext(), this, header).head();
+    }
+
+    @Override
+    public ProductFeedSchedule execute() throws APIException {
+      return execute(new HashMap<String, Object>());
+    }
+
+    @Override
+    public ProductFeedSchedule execute(Map<String, Object> extraParams) throws APIException {
+      ResponseWrapper rw = executeInternal(extraParams);
+      lastResponse = parseResponse(rw.getBody(), rw.getHeader());
+      return lastResponse;
+    }
+
+    public ListenableFuture<ProductFeedSchedule> executeAsync() throws APIException {
+      return executeAsync(new HashMap<String, Object>());
+    };
+
+    public ListenableFuture<ProductFeedSchedule> executeAsync(Map<String, Object> extraParams) throws APIException {
+      return Futures.transform(
+        executeAsyncInternal(extraParams),
+        new Function<ResponseWrapper, ProductFeedSchedule>() {
+           public ProductFeedSchedule apply(ResponseWrapper result) {
+             try {
+               return APIRequestGet.this.parseResponse(result.getBody(), result.getHeader());
+             } catch (Exception e) {
+               throw new RuntimeException(e);
+             }
+           }
+         },
+         MoreExecutors.directExecutor()
+      );
+    };
+
+    public APIRequestGet(String nodeId, APIContext context) {
+      super(context, nodeId, "/", "GET", Arrays.asList(PARAMS));
+    }
+
+    @Override
+    public APIRequestGet setParam(String param, Object value) {
+      setParamInternal(param, value);
+      return this;
+    }
+
+    @Override
+    public APIRequestGet setParams(Map<String, Object> params) {
+      setParamsInternal(params);
+      return this;
+    }
+
+
+    public APIRequestGet requestAllFields () {
+      return this.requestAllFields(true);
+    }
+
+    public APIRequestGet requestAllFields (boolean value) {
+      for (String field : FIELDS) {
+        this.requestField(field, value);
       }
+      return this;
+    }
 
-      @Override
-      public String toString() {
-        return value;
+    @Override
+    public APIRequestGet requestFields (List<String> fields) {
+      return this.requestFields(fields, true);
+    }
+
+    @Override
+    public APIRequestGet requestFields (List<String> fields, boolean value) {
+      for (String field : fields) {
+        this.requestField(field, value);
       }
+      return this;
+    }
+
+    @Override
+    public APIRequestGet requestField (String field) {
+      this.requestField(field, true);
+      return this;
+    }
+
+    @Override
+    public APIRequestGet requestField (String field, boolean value) {
+      this.requestFieldInternal(field, value);
+      return this;
+    }
+
+    public APIRequestGet requestDayOfMonthField () {
+      return this.requestDayOfMonthField(true);
+    }
+    public APIRequestGet requestDayOfMonthField (boolean value) {
+      this.requestField("day_of_month", value);
+      return this;
+    }
+    public APIRequestGet requestDayOfWeekField () {
+      return this.requestDayOfWeekField(true);
+    }
+    public APIRequestGet requestDayOfWeekField (boolean value) {
+      this.requestField("day_of_week", value);
+      return this;
+    }
+    public APIRequestGet requestHourField () {
+      return this.requestHourField(true);
+    }
+    public APIRequestGet requestHourField (boolean value) {
+      this.requestField("hour", value);
+      return this;
+    }
+    public APIRequestGet requestIdField () {
+      return this.requestIdField(true);
+    }
+    public APIRequestGet requestIdField (boolean value) {
+      this.requestField("id", value);
+      return this;
+    }
+    public APIRequestGet requestIntervalField () {
+      return this.requestIntervalField(true);
+    }
+    public APIRequestGet requestIntervalField (boolean value) {
+      this.requestField("interval", value);
+      return this;
+    }
+    public APIRequestGet requestIntervalCountField () {
+      return this.requestIntervalCountField(true);
+    }
+    public APIRequestGet requestIntervalCountField (boolean value) {
+      this.requestField("interval_count", value);
+      return this;
+    }
+    public APIRequestGet requestMinuteField () {
+      return this.requestMinuteField(true);
+    }
+    public APIRequestGet requestMinuteField (boolean value) {
+      this.requestField("minute", value);
+      return this;
+    }
+    public APIRequestGet requestTimezoneField () {
+      return this.requestTimezoneField(true);
+    }
+    public APIRequestGet requestTimezoneField (boolean value) {
+      this.requestField("timezone", value);
+      return this;
+    }
+    public APIRequestGet requestUrlField () {
+      return this.requestUrlField(true);
+    }
+    public APIRequestGet requestUrlField (boolean value) {
+      this.requestField("url", value);
+      return this;
+    }
+    public APIRequestGet requestUsernameField () {
+      return this.requestUsernameField(true);
+    }
+    public APIRequestGet requestUsernameField (boolean value) {
+      this.requestField("username", value);
+      return this;
+    }
   }
 
   public static enum EnumInterval {
-      @SerializedName("HOURLY")
-      VALUE_HOURLY("HOURLY"),
       @SerializedName("DAILY")
       VALUE_DAILY("DAILY"),
-      @SerializedName("WEEKLY")
-      VALUE_WEEKLY("WEEKLY"),
+      @SerializedName("HOURLY")
+      VALUE_HOURLY("HOURLY"),
       @SerializedName("MONTHLY")
       VALUE_MONTHLY("MONTHLY"),
-      NULL(null);
+      @SerializedName("WEEKLY")
+      VALUE_WEEKLY("WEEKLY"),
+      ;
 
       private String value;
 
@@ -363,6 +543,7 @@ public class ProductFeedSchedule extends APINode {
     this.mDayOfMonth = instance.mDayOfMonth;
     this.mDayOfWeek = instance.mDayOfWeek;
     this.mHour = instance.mHour;
+    this.mId = instance.mId;
     this.mInterval = instance.mInterval;
     this.mIntervalCount = instance.mIntervalCount;
     this.mMinute = instance.mMinute;
@@ -376,8 +557,8 @@ public class ProductFeedSchedule extends APINode {
 
   public static APIRequest.ResponseParser<ProductFeedSchedule> getParser() {
     return new APIRequest.ResponseParser<ProductFeedSchedule>() {
-      public APINodeList<ProductFeedSchedule> parseResponse(String response, APIContext context, APIRequest<ProductFeedSchedule> request) throws MalformedResponseException {
-        return ProductFeedSchedule.parseResponse(response, context, request);
+      public APINodeList<ProductFeedSchedule> parseResponse(String response, APIContext context, APIRequest<ProductFeedSchedule> request, String header) throws MalformedResponseException {
+        return ProductFeedSchedule.parseResponse(response, context, request, header);
       }
     };
   }

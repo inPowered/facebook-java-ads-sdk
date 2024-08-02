@@ -1,24 +1,9 @@
-/**
- * Copyright (c) 2015-present, Facebook, Inc. All rights reserved.
+/*
+ * Copyright (c) Meta Platforms, Inc. and affiliates.
+ * All rights reserved.
  *
- * You are hereby granted a non-exclusive, worldwide, royalty-free license to
- * use, copy, modify, and distribute this software in source code or binary
- * form for use in connection with the web services and APIs provided by
- * Facebook.
- *
- * As with any software that integrates with the Facebook platform, your use
- * of this software is subject to the Facebook Developer Principles and
- * Policies [http://developers.facebook.com/policy/]. This copyright notice
- * shall be included in all copies or substantial portions of the software.
- *
- * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
- * IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
- * FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL
- * THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
- * LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING
- * FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
- * DEALINGS IN THE SOFTWARE.
- *
+ * This source code is licensed under the license found in the
+ * LICENSE file in the root directory of this source tree.
  */
 
 package com.facebook.ads.sdk;
@@ -31,6 +16,11 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
+import com.google.common.base.Function;
+import com.google.common.util.concurrent.Futures;
+import com.google.common.util.concurrent.ListenableFuture;
+import com.google.common.util.concurrent.MoreExecutors;
+import com.google.common.util.concurrent.SettableFuture;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonArray;
 import com.google.gson.annotations.SerializedName;
@@ -61,8 +51,10 @@ public class BroadTargetingCategories extends APINode {
   private String mParentCategory = null;
   @SerializedName("path")
   private List<String> mPath = null;
-  @SerializedName("size")
-  private Long mSize = null;
+  @SerializedName("size_lower_bound")
+  private Long mSizeLowerBound = null;
+  @SerializedName("size_upper_bound")
+  private Long mSizeUpperBound = null;
   @SerializedName("source")
   private String mSource = null;
   @SerializedName("type")
@@ -81,7 +73,7 @@ public class BroadTargetingCategories extends APINode {
   public String getId() {
     return getFieldId().toString();
   }
-  public static BroadTargetingCategories loadJSON(String json, APIContext context) {
+  public static BroadTargetingCategories loadJSON(String json, APIContext context, String header) {
     BroadTargetingCategories broadTargetingCategories = getGson().fromJson(json, BroadTargetingCategories.class);
     if (context.isDebug()) {
       JsonParser parser = new JsonParser();
@@ -94,15 +86,16 @@ public class BroadTargetingCategories extends APINode {
         context.log("[Warning] When parsing response, object is not consistent with JSON:");
         context.log("[JSON]" + o1);
         context.log("[Object]" + o2);
-      };
+      }
     }
     broadTargetingCategories.context = context;
     broadTargetingCategories.rawValue = json;
+    broadTargetingCategories.header = header;
     return broadTargetingCategories;
   }
 
-  public static APINodeList<BroadTargetingCategories> parseResponse(String json, APIContext context, APIRequest request) throws MalformedResponseException {
-    APINodeList<BroadTargetingCategories> broadTargetingCategoriess = new APINodeList<BroadTargetingCategories>(request, json);
+  public static APINodeList<BroadTargetingCategories> parseResponse(String json, APIContext context, APIRequest request, String header) throws MalformedResponseException {
+    APINodeList<BroadTargetingCategories> broadTargetingCategoriess = new APINodeList<BroadTargetingCategories>(request, json, header);
     JsonArray arr;
     JsonObject obj;
     JsonParser parser = new JsonParser();
@@ -113,23 +106,32 @@ public class BroadTargetingCategories extends APINode {
         // First, check if it's a pure JSON Array
         arr = result.getAsJsonArray();
         for (int i = 0; i < arr.size(); i++) {
-          broadTargetingCategoriess.add(loadJSON(arr.get(i).getAsJsonObject().toString(), context));
+          broadTargetingCategoriess.add(loadJSON(arr.get(i).getAsJsonObject().toString(), context, header));
         };
         return broadTargetingCategoriess;
       } else if (result.isJsonObject()) {
         obj = result.getAsJsonObject();
         if (obj.has("data")) {
           if (obj.has("paging")) {
-            JsonObject paging = obj.get("paging").getAsJsonObject().get("cursors").getAsJsonObject();
-            String before = paging.has("before") ? paging.get("before").getAsString() : null;
-            String after = paging.has("after") ? paging.get("after").getAsString() : null;
-            broadTargetingCategoriess.setPaging(before, after);
+            JsonObject paging = obj.get("paging").getAsJsonObject();
+            if (paging.has("cursors")) {
+                JsonObject cursors = paging.get("cursors").getAsJsonObject();
+                String before = cursors.has("before") ? cursors.get("before").getAsString() : null;
+                String after = cursors.has("after") ? cursors.get("after").getAsString() : null;
+                broadTargetingCategoriess.setCursors(before, after);
+            }
+            String previous = paging.has("previous") ? paging.get("previous").getAsString() : null;
+            String next = paging.has("next") ? paging.get("next").getAsString() : null;
+            broadTargetingCategoriess.setPaging(previous, next);
+            if (context.hasAppSecret()) {
+              broadTargetingCategoriess.setAppSecret(context.getAppSecretProof());
+            }
           }
           if (obj.get("data").isJsonArray()) {
             // Second, check if it's a JSON array with "data"
             arr = obj.get("data").getAsJsonArray();
             for (int i = 0; i < arr.size(); i++) {
-              broadTargetingCategoriess.add(loadJSON(arr.get(i).getAsJsonObject().toString(), context));
+              broadTargetingCategoriess.add(loadJSON(arr.get(i).getAsJsonObject().toString(), context, header));
             };
           } else if (obj.get("data").isJsonObject()) {
             // Third, check if it's a JSON object with "data"
@@ -140,13 +142,13 @@ public class BroadTargetingCategories extends APINode {
                 isRedownload = true;
                 obj = obj.getAsJsonObject(s);
                 for (Map.Entry<String, JsonElement> entry : obj.entrySet()) {
-                  broadTargetingCategoriess.add(loadJSON(entry.getValue().toString(), context));
+                  broadTargetingCategoriess.add(loadJSON(entry.getValue().toString(), context, header));
                 }
                 break;
               }
             }
             if (!isRedownload) {
-              broadTargetingCategoriess.add(loadJSON(obj.toString(), context));
+              broadTargetingCategoriess.add(loadJSON(obj.toString(), context, header));
             }
           }
           return broadTargetingCategoriess;
@@ -154,7 +156,7 @@ public class BroadTargetingCategories extends APINode {
           // Fourth, check if it's a map of image objects
           obj = obj.get("images").getAsJsonObject();
           for (Map.Entry<String, JsonElement> entry : obj.entrySet()) {
-              broadTargetingCategoriess.add(loadJSON(entry.getValue().toString(), context));
+              broadTargetingCategoriess.add(loadJSON(entry.getValue().toString(), context, header));
           }
           return broadTargetingCategoriess;
         } else {
@@ -173,7 +175,7 @@ public class BroadTargetingCategories extends APINode {
               value.getAsJsonObject().get("id") != null &&
               value.getAsJsonObject().get("id").getAsString().equals(key)
             ) {
-              broadTargetingCategoriess.add(loadJSON(value.toString(), context));
+              broadTargetingCategoriess.add(loadJSON(value.toString(), context, header));
             } else {
               isIdIndexedArray = false;
               break;
@@ -185,7 +187,7 @@ public class BroadTargetingCategories extends APINode {
 
           // Sixth, check if it's pure JsonObject
           broadTargetingCategoriess.clear();
-          broadTargetingCategoriess.add(loadJSON(json, context));
+          broadTargetingCategoriess.add(loadJSON(json, context, header));
           return broadTargetingCategoriess;
         }
       }
@@ -259,12 +261,21 @@ public class BroadTargetingCategories extends APINode {
     return this;
   }
 
-  public Long getFieldSize() {
-    return mSize;
+  public Long getFieldSizeLowerBound() {
+    return mSizeLowerBound;
   }
 
-  public BroadTargetingCategories setFieldSize(Long value) {
-    this.mSize = value;
+  public BroadTargetingCategories setFieldSizeLowerBound(Long value) {
+    this.mSizeLowerBound = value;
+    return this;
+  }
+
+  public Long getFieldSizeUpperBound() {
+    return mSizeUpperBound;
+  }
+
+  public BroadTargetingCategories setFieldSizeUpperBound(Long value) {
+    this.mSizeUpperBound = value;
     return this;
   }
 
@@ -335,7 +346,8 @@ public class BroadTargetingCategories extends APINode {
     this.mName = instance.mName;
     this.mParentCategory = instance.mParentCategory;
     this.mPath = instance.mPath;
-    this.mSize = instance.mSize;
+    this.mSizeLowerBound = instance.mSizeLowerBound;
+    this.mSizeUpperBound = instance.mSizeUpperBound;
     this.mSource = instance.mSource;
     this.mType = instance.mType;
     this.mTypeName = instance.mTypeName;
@@ -348,8 +360,8 @@ public class BroadTargetingCategories extends APINode {
 
   public static APIRequest.ResponseParser<BroadTargetingCategories> getParser() {
     return new APIRequest.ResponseParser<BroadTargetingCategories>() {
-      public APINodeList<BroadTargetingCategories> parseResponse(String response, APIContext context, APIRequest<BroadTargetingCategories> request) throws MalformedResponseException {
-        return BroadTargetingCategories.parseResponse(response, context, request);
+      public APINodeList<BroadTargetingCategories> parseResponse(String response, APIContext context, APIRequest<BroadTargetingCategories> request, String header) throws MalformedResponseException {
+        return BroadTargetingCategories.parseResponse(response, context, request, header);
       }
     };
   }

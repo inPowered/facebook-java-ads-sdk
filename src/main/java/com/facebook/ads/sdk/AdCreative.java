@@ -1,24 +1,9 @@
-/**
- * Copyright (c) 2015-present, Facebook, Inc. All rights reserved.
+/*
+ * Copyright (c) Meta Platforms, Inc. and affiliates.
+ * All rights reserved.
  *
- * You are hereby granted a non-exclusive, worldwide, royalty-free license to
- * use, copy, modify, and distribute this software in source code or binary
- * form for use in connection with the web services and APIs provided by
- * Facebook.
- *
- * As with any software that integrates with the Facebook platform, your use
- * of this software is subject to the Facebook Developer Principles and
- * Policies [http://developers.facebook.com/policy/]. This copyright notice
- * shall be included in all copies or substantial portions of the software.
- *
- * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
- * IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
- * FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL
- * THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
- * LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING
- * FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
- * DEALINGS IN THE SOFTWARE.
- *
+ * This source code is licensed under the license found in the
+ * LICENSE file in the root directory of this source tree.
  */
 
 package com.facebook.ads.sdk;
@@ -31,6 +16,11 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
+import com.google.common.base.Function;
+import com.google.common.util.concurrent.Futures;
+import com.google.common.util.concurrent.ListenableFuture;
+import com.google.common.util.concurrent.MoreExecutors;
+import com.google.common.util.concurrent.SettableFuture;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonArray;
 import com.google.gson.annotations.SerializedName;
@@ -58,19 +48,53 @@ public class AdCreative extends APINode {
   @SerializedName("adlabels")
   private List<AdLabel> mAdlabels = null;
   @SerializedName("applink_treatment")
-  private EnumApplinkTreatment mApplinkTreatment = null;
+  private String mApplinkTreatment = null;
   @SerializedName("asset_feed_spec")
   private AdAssetFeedSpec mAssetFeedSpec = null;
+  @SerializedName("authorization_category")
+  private String mAuthorizationCategory = null;
+  @SerializedName("auto_update")
+  private Boolean mAutoUpdate = null;
   @SerializedName("body")
   private String mBody = null;
+  @SerializedName("branded_content")
+  private AdCreativeBrandedContentAds mBrandedContent = null;
   @SerializedName("branded_content_sponsor_page_id")
   private String mBrandedContentSponsorPageId = null;
+  @SerializedName("bundle_folder_id")
+  private String mBundleFolderId = null;
   @SerializedName("call_to_action_type")
   private EnumCallToActionType mCallToActionType = null;
+  @SerializedName("categorization_criteria")
+  private String mCategorizationCriteria = null;
+  @SerializedName("category_media_source")
+  private String mCategoryMediaSource = null;
+  @SerializedName("collaborative_ads_lsb_image_bank_id")
+  private String mCollaborativeAdsLsbImageBankId = null;
+  @SerializedName("contextual_multi_ads")
+  private AdCreativeContextualMultiAds mContextualMultiAds = null;
+  @SerializedName("creative_sourcing_spec")
+  private AdCreativeSourcingSpec mCreativeSourcingSpec = null;
+  @SerializedName("degrees_of_freedom_spec")
+  private AdCreativeDegreesOfFreedomSpec mDegreesOfFreedomSpec = null;
+  @SerializedName("destination_set_id")
+  private String mDestinationSetId = null;
+  @SerializedName("dynamic_ad_voice")
+  private String mDynamicAdVoice = null;
+  @SerializedName("effective_authorization_category")
+  private String mEffectiveAuthorizationCategory = null;
+  @SerializedName("effective_instagram_media_id")
+  private String mEffectiveInstagramMediaId = null;
   @SerializedName("effective_instagram_story_id")
   private String mEffectiveInstagramStoryId = null;
   @SerializedName("effective_object_story_id")
   private String mEffectiveObjectStoryId = null;
+  @SerializedName("enable_direct_install")
+  private Boolean mEnableDirectInstall = null;
+  @SerializedName("enable_launch_instant_app")
+  private Boolean mEnableLaunchInstantApp = null;
+  @SerializedName("facebook_branded_content")
+  private AdCreativeFacebookBrandedContent mFacebookBrandedContent = null;
   @SerializedName("id")
   private String mId = null;
   @SerializedName("image_crops")
@@ -81,10 +105,20 @@ public class AdCreative extends APINode {
   private String mImageUrl = null;
   @SerializedName("instagram_actor_id")
   private String mInstagramActorId = null;
+  @SerializedName("instagram_branded_content")
+  private AdCreativeInstagramBrandedContent mInstagramBrandedContent = null;
   @SerializedName("instagram_permalink_url")
   private String mInstagramPermalinkUrl = null;
   @SerializedName("instagram_story_id")
   private String mInstagramStoryId = null;
+  @SerializedName("instagram_user_id")
+  private String mInstagramUserId = null;
+  @SerializedName("interactive_components_spec")
+  private AdCreativeInteractiveComponentsSpec mInteractiveComponentsSpec = null;
+  @SerializedName("link_deep_link_url")
+  private String mLinkDeepLinkUrl = null;
+  @SerializedName("link_destination_display_url")
+  private String mLinkDestinationDisplayUrl = null;
   @SerializedName("link_og_id")
   private String mLinkOgId = null;
   @SerializedName("link_url")
@@ -93,6 +127,8 @@ public class AdCreative extends APINode {
   private String mName = null;
   @SerializedName("object_id")
   private String mObjectId = null;
+  @SerializedName("object_store_url")
+  private String mObjectStoreUrl = null;
   @SerializedName("object_story_id")
   private String mObjectStoryId = null;
   @SerializedName("object_story_spec")
@@ -101,18 +137,34 @@ public class AdCreative extends APINode {
   private EnumObjectType mObjectType = null;
   @SerializedName("object_url")
   private String mObjectUrl = null;
+  @SerializedName("omnichannel_link_spec")
+  private AdCreativeOmnichannelLinkSpec mOmnichannelLinkSpec = null;
+  @SerializedName("page_welcome_message")
+  private String mPageWelcomeMessage = null;
+  @SerializedName("photo_album_source_object_story_id")
+  private String mPhotoAlbumSourceObjectStoryId = null;
+  @SerializedName("place_page_set_id")
+  private String mPlacePageSetId = null;
   @SerializedName("platform_customizations")
-  private Object mPlatformCustomizations = null;
+  private AdCreativePlatformCustomization mPlatformCustomizations = null;
+  @SerializedName("playable_asset_id")
+  private String mPlayableAssetId = null;
+  @SerializedName("portrait_customizations")
+  private AdCreativePortraitCustomizations mPortraitCustomizations = null;
   @SerializedName("product_set_id")
   private String mProductSetId = null;
   @SerializedName("recommender_settings")
-  private Object mRecommenderSettings = null;
+  private AdCreativeRecommenderSettings mRecommenderSettings = null;
+  @SerializedName("source_instagram_media_id")
+  private String mSourceInstagramMediaId = null;
   @SerializedName("status")
   private EnumStatus mStatus = null;
   @SerializedName("template_url")
   private String mTemplateUrl = null;
   @SerializedName("template_url_spec")
-  private Object mTemplateUrlSpec = null;
+  private AdCreativeTemplateURLSpec mTemplateUrlSpec = null;
+  @SerializedName("thumbnail_id")
+  private String mThumbnailId = null;
   @SerializedName("thumbnail_url")
   private String mThumbnailUrl = null;
   @SerializedName("title")
@@ -137,6 +189,7 @@ public class AdCreative extends APINode {
   public AdCreative(String id, APIContext context) {
     this.mId = id;
     mCreativeId = mId.toString();
+
     this.context = context;
   }
 
@@ -151,12 +204,22 @@ public class AdCreative extends APINode {
     return fetchById(id.toString(), context);
   }
 
+  public static ListenableFuture<AdCreative> fetchByIdAsync(Long id, APIContext context) throws APIException {
+    return fetchByIdAsync(id.toString(), context);
+  }
+
   public static AdCreative fetchById(String id, APIContext context) throws APIException {
-    AdCreative adCreative =
+    return
       new APIRequestGet(id, context)
       .requestAllFields()
       .execute();
-    return adCreative;
+  }
+
+  public static ListenableFuture<AdCreative> fetchByIdAsync(String id, APIContext context) throws APIException {
+    return
+      new APIRequestGet(id, context)
+      .requestAllFields()
+      .executeAsync();
   }
 
   public static APINodeList<AdCreative> fetchByIds(List<String> ids, List<String> fields, APIContext context) throws APIException {
@@ -168,6 +231,14 @@ public class AdCreative extends APINode {
     );
   }
 
+  public static ListenableFuture<APINodeList<AdCreative>> fetchByIdsAsync(List<String> ids, List<String> fields, APIContext context) throws APIException {
+    return
+      new APIRequest(context, "", "/", "GET", AdCreative.getParser())
+        .setParam("ids", APIRequest.joinStringList(ids))
+        .requestFields(fields)
+        .executeAsyncBase();
+  }
+
   private String getPrefixedId() {
     return getId();
   }
@@ -175,7 +246,7 @@ public class AdCreative extends APINode {
   public String getId() {
     return getFieldId().toString();
   }
-  public static AdCreative loadJSON(String json, APIContext context) {
+  public static AdCreative loadJSON(String json, APIContext context, String header) {
     AdCreative adCreative = getGson().fromJson(json, AdCreative.class);
     if (context.isDebug()) {
       JsonParser parser = new JsonParser();
@@ -188,16 +259,17 @@ public class AdCreative extends APINode {
         context.log("[Warning] When parsing response, object is not consistent with JSON:");
         context.log("[JSON]" + o1);
         context.log("[Object]" + o2);
-      };
+      }
     }
     adCreative.context = context;
     adCreative.rawValue = json;
+    adCreative.header = header;
     adCreative.mCreativeId = adCreative.mId;
     return adCreative;
   }
 
-  public static APINodeList<AdCreative> parseResponse(String json, APIContext context, APIRequest request) throws MalformedResponseException {
-    APINodeList<AdCreative> adCreatives = new APINodeList<AdCreative>(request, json);
+  public static APINodeList<AdCreative> parseResponse(String json, APIContext context, APIRequest request, String header) throws MalformedResponseException {
+    APINodeList<AdCreative> adCreatives = new APINodeList<AdCreative>(request, json, header);
     JsonArray arr;
     JsonObject obj;
     JsonParser parser = new JsonParser();
@@ -208,23 +280,32 @@ public class AdCreative extends APINode {
         // First, check if it's a pure JSON Array
         arr = result.getAsJsonArray();
         for (int i = 0; i < arr.size(); i++) {
-          adCreatives.add(loadJSON(arr.get(i).getAsJsonObject().toString(), context));
+          adCreatives.add(loadJSON(arr.get(i).getAsJsonObject().toString(), context, header));
         };
         return adCreatives;
       } else if (result.isJsonObject()) {
         obj = result.getAsJsonObject();
         if (obj.has("data")) {
           if (obj.has("paging")) {
-            JsonObject paging = obj.get("paging").getAsJsonObject().get("cursors").getAsJsonObject();
-            String before = paging.has("before") ? paging.get("before").getAsString() : null;
-            String after = paging.has("after") ? paging.get("after").getAsString() : null;
-            adCreatives.setPaging(before, after);
+            JsonObject paging = obj.get("paging").getAsJsonObject();
+            if (paging.has("cursors")) {
+                JsonObject cursors = paging.get("cursors").getAsJsonObject();
+                String before = cursors.has("before") ? cursors.get("before").getAsString() : null;
+                String after = cursors.has("after") ? cursors.get("after").getAsString() : null;
+                adCreatives.setCursors(before, after);
+            }
+            String previous = paging.has("previous") ? paging.get("previous").getAsString() : null;
+            String next = paging.has("next") ? paging.get("next").getAsString() : null;
+            adCreatives.setPaging(previous, next);
+            if (context.hasAppSecret()) {
+              adCreatives.setAppSecret(context.getAppSecretProof());
+            }
           }
           if (obj.get("data").isJsonArray()) {
             // Second, check if it's a JSON array with "data"
             arr = obj.get("data").getAsJsonArray();
             for (int i = 0; i < arr.size(); i++) {
-              adCreatives.add(loadJSON(arr.get(i).getAsJsonObject().toString(), context));
+              adCreatives.add(loadJSON(arr.get(i).getAsJsonObject().toString(), context, header));
             };
           } else if (obj.get("data").isJsonObject()) {
             // Third, check if it's a JSON object with "data"
@@ -235,13 +316,13 @@ public class AdCreative extends APINode {
                 isRedownload = true;
                 obj = obj.getAsJsonObject(s);
                 for (Map.Entry<String, JsonElement> entry : obj.entrySet()) {
-                  adCreatives.add(loadJSON(entry.getValue().toString(), context));
+                  adCreatives.add(loadJSON(entry.getValue().toString(), context, header));
                 }
                 break;
               }
             }
             if (!isRedownload) {
-              adCreatives.add(loadJSON(obj.toString(), context));
+              adCreatives.add(loadJSON(obj.toString(), context, header));
             }
           }
           return adCreatives;
@@ -249,7 +330,7 @@ public class AdCreative extends APINode {
           // Fourth, check if it's a map of image objects
           obj = obj.get("images").getAsJsonObject();
           for (Map.Entry<String, JsonElement> entry : obj.entrySet()) {
-              adCreatives.add(loadJSON(entry.getValue().toString(), context));
+              adCreatives.add(loadJSON(entry.getValue().toString(), context, header));
           }
           return adCreatives;
         } else {
@@ -268,7 +349,7 @@ public class AdCreative extends APINode {
               value.getAsJsonObject().get("id") != null &&
               value.getAsJsonObject().get("id").getAsString().equals(key)
             ) {
-              adCreatives.add(loadJSON(value.toString(), context));
+              adCreatives.add(loadJSON(value.toString(), context, header));
             } else {
               isIdIndexedArray = false;
               break;
@@ -280,7 +361,7 @@ public class AdCreative extends APINode {
 
           // Sixth, check if it's pure JsonObject
           adCreatives.clear();
-          adCreatives.add(loadJSON(json, context));
+          adCreatives.add(loadJSON(json, context, header));
           return adCreatives;
         }
       }
@@ -308,12 +389,12 @@ public class AdCreative extends APINode {
     return getGson().toJson(this);
   }
 
-  public APIRequestDeleteAdLabels deleteAdLabels() {
-    return new APIRequestDeleteAdLabels(this.getPrefixedId().toString(), context);
-  }
-
   public APIRequestCreateAdLabel createAdLabel() {
     return new APIRequestCreateAdLabel(this.getPrefixedId().toString(), context);
+  }
+
+  public APIRequestGetCreativeInsights getCreativeInsights() {
+    return new APIRequestGetCreativeInsights(this.getPrefixedId().toString(), context);
   }
 
   public APIRequestGetPreviews getPreviews() {
@@ -365,11 +446,11 @@ public class AdCreative extends APINode {
     this.mAdlabels = AdLabel.getGson().fromJson(value, type);
     return this;
   }
-  public EnumApplinkTreatment getFieldApplinkTreatment() {
+  public String getFieldApplinkTreatment() {
     return mApplinkTreatment;
   }
 
-  public AdCreative setFieldApplinkTreatment(EnumApplinkTreatment value) {
+  public AdCreative setFieldApplinkTreatment(String value) {
     this.mApplinkTreatment = value;
     return this;
   }
@@ -388,6 +469,24 @@ public class AdCreative extends APINode {
     this.mAssetFeedSpec = AdAssetFeedSpec.getGson().fromJson(value, type);
     return this;
   }
+  public String getFieldAuthorizationCategory() {
+    return mAuthorizationCategory;
+  }
+
+  public AdCreative setFieldAuthorizationCategory(String value) {
+    this.mAuthorizationCategory = value;
+    return this;
+  }
+
+  public Boolean getFieldAutoUpdate() {
+    return mAutoUpdate;
+  }
+
+  public AdCreative setFieldAutoUpdate(Boolean value) {
+    this.mAutoUpdate = value;
+    return this;
+  }
+
   public String getFieldBody() {
     return mBody;
   }
@@ -397,6 +496,20 @@ public class AdCreative extends APINode {
     return this;
   }
 
+  public AdCreativeBrandedContentAds getFieldBrandedContent() {
+    return mBrandedContent;
+  }
+
+  public AdCreative setFieldBrandedContent(AdCreativeBrandedContentAds value) {
+    this.mBrandedContent = value;
+    return this;
+  }
+
+  public AdCreative setFieldBrandedContent(String value) {
+    Type type = new TypeToken<AdCreativeBrandedContentAds>(){}.getType();
+    this.mBrandedContent = AdCreativeBrandedContentAds.getGson().fromJson(value, type);
+    return this;
+  }
   public String getFieldBrandedContentSponsorPageId() {
     return mBrandedContentSponsorPageId;
   }
@@ -406,12 +519,126 @@ public class AdCreative extends APINode {
     return this;
   }
 
+  public String getFieldBundleFolderId() {
+    return mBundleFolderId;
+  }
+
+  public AdCreative setFieldBundleFolderId(String value) {
+    this.mBundleFolderId = value;
+    return this;
+  }
+
   public EnumCallToActionType getFieldCallToActionType() {
     return mCallToActionType;
   }
 
   public AdCreative setFieldCallToActionType(EnumCallToActionType value) {
     this.mCallToActionType = value;
+    return this;
+  }
+
+  public String getFieldCategorizationCriteria() {
+    return mCategorizationCriteria;
+  }
+
+  public AdCreative setFieldCategorizationCriteria(String value) {
+    this.mCategorizationCriteria = value;
+    return this;
+  }
+
+  public String getFieldCategoryMediaSource() {
+    return mCategoryMediaSource;
+  }
+
+  public AdCreative setFieldCategoryMediaSource(String value) {
+    this.mCategoryMediaSource = value;
+    return this;
+  }
+
+  public String getFieldCollaborativeAdsLsbImageBankId() {
+    return mCollaborativeAdsLsbImageBankId;
+  }
+
+  public AdCreative setFieldCollaborativeAdsLsbImageBankId(String value) {
+    this.mCollaborativeAdsLsbImageBankId = value;
+    return this;
+  }
+
+  public AdCreativeContextualMultiAds getFieldContextualMultiAds() {
+    return mContextualMultiAds;
+  }
+
+  public AdCreative setFieldContextualMultiAds(AdCreativeContextualMultiAds value) {
+    this.mContextualMultiAds = value;
+    return this;
+  }
+
+  public AdCreative setFieldContextualMultiAds(String value) {
+    Type type = new TypeToken<AdCreativeContextualMultiAds>(){}.getType();
+    this.mContextualMultiAds = AdCreativeContextualMultiAds.getGson().fromJson(value, type);
+    return this;
+  }
+  public AdCreativeSourcingSpec getFieldCreativeSourcingSpec() {
+    return mCreativeSourcingSpec;
+  }
+
+  public AdCreative setFieldCreativeSourcingSpec(AdCreativeSourcingSpec value) {
+    this.mCreativeSourcingSpec = value;
+    return this;
+  }
+
+  public AdCreative setFieldCreativeSourcingSpec(String value) {
+    Type type = new TypeToken<AdCreativeSourcingSpec>(){}.getType();
+    this.mCreativeSourcingSpec = AdCreativeSourcingSpec.getGson().fromJson(value, type);
+    return this;
+  }
+  public AdCreativeDegreesOfFreedomSpec getFieldDegreesOfFreedomSpec() {
+    return mDegreesOfFreedomSpec;
+  }
+
+  public AdCreative setFieldDegreesOfFreedomSpec(AdCreativeDegreesOfFreedomSpec value) {
+    this.mDegreesOfFreedomSpec = value;
+    return this;
+  }
+
+  public AdCreative setFieldDegreesOfFreedomSpec(String value) {
+    Type type = new TypeToken<AdCreativeDegreesOfFreedomSpec>(){}.getType();
+    this.mDegreesOfFreedomSpec = AdCreativeDegreesOfFreedomSpec.getGson().fromJson(value, type);
+    return this;
+  }
+  public String getFieldDestinationSetId() {
+    return mDestinationSetId;
+  }
+
+  public AdCreative setFieldDestinationSetId(String value) {
+    this.mDestinationSetId = value;
+    return this;
+  }
+
+  public String getFieldDynamicAdVoice() {
+    return mDynamicAdVoice;
+  }
+
+  public AdCreative setFieldDynamicAdVoice(String value) {
+    this.mDynamicAdVoice = value;
+    return this;
+  }
+
+  public String getFieldEffectiveAuthorizationCategory() {
+    return mEffectiveAuthorizationCategory;
+  }
+
+  public AdCreative setFieldEffectiveAuthorizationCategory(String value) {
+    this.mEffectiveAuthorizationCategory = value;
+    return this;
+  }
+
+  public String getFieldEffectiveInstagramMediaId() {
+    return mEffectiveInstagramMediaId;
+  }
+
+  public AdCreative setFieldEffectiveInstagramMediaId(String value) {
+    this.mEffectiveInstagramMediaId = value;
     return this;
   }
 
@@ -433,6 +660,38 @@ public class AdCreative extends APINode {
     return this;
   }
 
+  public Boolean getFieldEnableDirectInstall() {
+    return mEnableDirectInstall;
+  }
+
+  public AdCreative setFieldEnableDirectInstall(Boolean value) {
+    this.mEnableDirectInstall = value;
+    return this;
+  }
+
+  public Boolean getFieldEnableLaunchInstantApp() {
+    return mEnableLaunchInstantApp;
+  }
+
+  public AdCreative setFieldEnableLaunchInstantApp(Boolean value) {
+    this.mEnableLaunchInstantApp = value;
+    return this;
+  }
+
+  public AdCreativeFacebookBrandedContent getFieldFacebookBrandedContent() {
+    return mFacebookBrandedContent;
+  }
+
+  public AdCreative setFieldFacebookBrandedContent(AdCreativeFacebookBrandedContent value) {
+    this.mFacebookBrandedContent = value;
+    return this;
+  }
+
+  public AdCreative setFieldFacebookBrandedContent(String value) {
+    Type type = new TypeToken<AdCreativeFacebookBrandedContent>(){}.getType();
+    this.mFacebookBrandedContent = AdCreativeFacebookBrandedContent.getGson().fromJson(value, type);
+    return this;
+  }
   public String getFieldId() {
     return mId;
   }
@@ -484,6 +743,20 @@ public class AdCreative extends APINode {
     return this;
   }
 
+  public AdCreativeInstagramBrandedContent getFieldInstagramBrandedContent() {
+    return mInstagramBrandedContent;
+  }
+
+  public AdCreative setFieldInstagramBrandedContent(AdCreativeInstagramBrandedContent value) {
+    this.mInstagramBrandedContent = value;
+    return this;
+  }
+
+  public AdCreative setFieldInstagramBrandedContent(String value) {
+    Type type = new TypeToken<AdCreativeInstagramBrandedContent>(){}.getType();
+    this.mInstagramBrandedContent = AdCreativeInstagramBrandedContent.getGson().fromJson(value, type);
+    return this;
+  }
   public String getFieldInstagramPermalinkUrl() {
     return mInstagramPermalinkUrl;
   }
@@ -499,6 +772,47 @@ public class AdCreative extends APINode {
 
   public AdCreative setFieldInstagramStoryId(String value) {
     this.mInstagramStoryId = value;
+    return this;
+  }
+
+  public String getFieldInstagramUserId() {
+    return mInstagramUserId;
+  }
+
+  public AdCreative setFieldInstagramUserId(String value) {
+    this.mInstagramUserId = value;
+    return this;
+  }
+
+  public AdCreativeInteractiveComponentsSpec getFieldInteractiveComponentsSpec() {
+    return mInteractiveComponentsSpec;
+  }
+
+  public AdCreative setFieldInteractiveComponentsSpec(AdCreativeInteractiveComponentsSpec value) {
+    this.mInteractiveComponentsSpec = value;
+    return this;
+  }
+
+  public AdCreative setFieldInteractiveComponentsSpec(String value) {
+    Type type = new TypeToken<AdCreativeInteractiveComponentsSpec>(){}.getType();
+    this.mInteractiveComponentsSpec = AdCreativeInteractiveComponentsSpec.getGson().fromJson(value, type);
+    return this;
+  }
+  public String getFieldLinkDeepLinkUrl() {
+    return mLinkDeepLinkUrl;
+  }
+
+  public AdCreative setFieldLinkDeepLinkUrl(String value) {
+    this.mLinkDeepLinkUrl = value;
+    return this;
+  }
+
+  public String getFieldLinkDestinationDisplayUrl() {
+    return mLinkDestinationDisplayUrl;
+  }
+
+  public AdCreative setFieldLinkDestinationDisplayUrl(String value) {
+    this.mLinkDestinationDisplayUrl = value;
     return this;
   }
 
@@ -535,6 +849,15 @@ public class AdCreative extends APINode {
 
   public AdCreative setFieldObjectId(String value) {
     this.mObjectId = value;
+    return this;
+  }
+
+  public String getFieldObjectStoreUrl() {
+    return mObjectStoreUrl;
+  }
+
+  public AdCreative setFieldObjectStoreUrl(String value) {
+    this.mObjectStoreUrl = value;
     return this;
   }
 
@@ -579,15 +902,84 @@ public class AdCreative extends APINode {
     return this;
   }
 
-  public Object getFieldPlatformCustomizations() {
+  public AdCreativeOmnichannelLinkSpec getFieldOmnichannelLinkSpec() {
+    return mOmnichannelLinkSpec;
+  }
+
+  public AdCreative setFieldOmnichannelLinkSpec(AdCreativeOmnichannelLinkSpec value) {
+    this.mOmnichannelLinkSpec = value;
+    return this;
+  }
+
+  public AdCreative setFieldOmnichannelLinkSpec(String value) {
+    Type type = new TypeToken<AdCreativeOmnichannelLinkSpec>(){}.getType();
+    this.mOmnichannelLinkSpec = AdCreativeOmnichannelLinkSpec.getGson().fromJson(value, type);
+    return this;
+  }
+  public String getFieldPageWelcomeMessage() {
+    return mPageWelcomeMessage;
+  }
+
+  public AdCreative setFieldPageWelcomeMessage(String value) {
+    this.mPageWelcomeMessage = value;
+    return this;
+  }
+
+  public String getFieldPhotoAlbumSourceObjectStoryId() {
+    return mPhotoAlbumSourceObjectStoryId;
+  }
+
+  public AdCreative setFieldPhotoAlbumSourceObjectStoryId(String value) {
+    this.mPhotoAlbumSourceObjectStoryId = value;
+    return this;
+  }
+
+  public String getFieldPlacePageSetId() {
+    return mPlacePageSetId;
+  }
+
+  public AdCreative setFieldPlacePageSetId(String value) {
+    this.mPlacePageSetId = value;
+    return this;
+  }
+
+  public AdCreativePlatformCustomization getFieldPlatformCustomizations() {
     return mPlatformCustomizations;
   }
 
-  public AdCreative setFieldPlatformCustomizations(Object value) {
+  public AdCreative setFieldPlatformCustomizations(AdCreativePlatformCustomization value) {
     this.mPlatformCustomizations = value;
     return this;
   }
 
+  public AdCreative setFieldPlatformCustomizations(String value) {
+    Type type = new TypeToken<AdCreativePlatformCustomization>(){}.getType();
+    this.mPlatformCustomizations = AdCreativePlatformCustomization.getGson().fromJson(value, type);
+    return this;
+  }
+  public String getFieldPlayableAssetId() {
+    return mPlayableAssetId;
+  }
+
+  public AdCreative setFieldPlayableAssetId(String value) {
+    this.mPlayableAssetId = value;
+    return this;
+  }
+
+  public AdCreativePortraitCustomizations getFieldPortraitCustomizations() {
+    return mPortraitCustomizations;
+  }
+
+  public AdCreative setFieldPortraitCustomizations(AdCreativePortraitCustomizations value) {
+    this.mPortraitCustomizations = value;
+    return this;
+  }
+
+  public AdCreative setFieldPortraitCustomizations(String value) {
+    Type type = new TypeToken<AdCreativePortraitCustomizations>(){}.getType();
+    this.mPortraitCustomizations = AdCreativePortraitCustomizations.getGson().fromJson(value, type);
+    return this;
+  }
   public String getFieldProductSetId() {
     return mProductSetId;
   }
@@ -597,12 +989,26 @@ public class AdCreative extends APINode {
     return this;
   }
 
-  public Object getFieldRecommenderSettings() {
+  public AdCreativeRecommenderSettings getFieldRecommenderSettings() {
     return mRecommenderSettings;
   }
 
-  public AdCreative setFieldRecommenderSettings(Object value) {
+  public AdCreative setFieldRecommenderSettings(AdCreativeRecommenderSettings value) {
     this.mRecommenderSettings = value;
+    return this;
+  }
+
+  public AdCreative setFieldRecommenderSettings(String value) {
+    Type type = new TypeToken<AdCreativeRecommenderSettings>(){}.getType();
+    this.mRecommenderSettings = AdCreativeRecommenderSettings.getGson().fromJson(value, type);
+    return this;
+  }
+  public String getFieldSourceInstagramMediaId() {
+    return mSourceInstagramMediaId;
+  }
+
+  public AdCreative setFieldSourceInstagramMediaId(String value) {
+    this.mSourceInstagramMediaId = value;
     return this;
   }
 
@@ -624,12 +1030,26 @@ public class AdCreative extends APINode {
     return this;
   }
 
-  public Object getFieldTemplateUrlSpec() {
+  public AdCreativeTemplateURLSpec getFieldTemplateUrlSpec() {
     return mTemplateUrlSpec;
   }
 
-  public AdCreative setFieldTemplateUrlSpec(Object value) {
+  public AdCreative setFieldTemplateUrlSpec(AdCreativeTemplateURLSpec value) {
     this.mTemplateUrlSpec = value;
+    return this;
+  }
+
+  public AdCreative setFieldTemplateUrlSpec(String value) {
+    Type type = new TypeToken<AdCreativeTemplateURLSpec>(){}.getType();
+    this.mTemplateUrlSpec = AdCreativeTemplateURLSpec.getGson().fromJson(value, type);
+    return this;
+  }
+  public String getFieldThumbnailId() {
+    return mThumbnailId;
+  }
+
+  public AdCreative setFieldThumbnailId(String value) {
+    this.mThumbnailId = value;
     return this;
   }
 
@@ -680,11 +1100,11 @@ public class AdCreative extends APINode {
 
 
 
-  public static class APIRequestDeleteAdLabels extends APIRequest<APINode> {
+  public static class APIRequestCreateAdLabel extends APIRequest<AdCreative> {
 
-    APINodeList<APINode> lastResponse = null;
+    AdCreative lastResponse = null;
     @Override
-    public APINodeList<APINode> getLastResponse() {
+    public AdCreative getLastResponse() {
       return lastResponse;
     }
     public static final String[] PARAMS = {
@@ -695,114 +1115,41 @@ public class AdCreative extends APINode {
     };
 
     @Override
-    public APINodeList<APINode> parseResponse(String response) throws APIException {
-      return APINode.parseResponse(response, getContext(), this);
+    public AdCreative parseResponse(String response, String header) throws APIException {
+      return AdCreative.parseResponse(response, getContext(), this, header).head();
     }
 
     @Override
-    public APINodeList<APINode> execute() throws APIException {
+    public AdCreative execute() throws APIException {
       return execute(new HashMap<String, Object>());
     }
 
     @Override
-    public APINodeList<APINode> execute(Map<String, Object> extraParams) throws APIException {
-      lastResponse = parseResponse(executeInternal(extraParams));
+    public AdCreative execute(Map<String, Object> extraParams) throws APIException {
+      ResponseWrapper rw = executeInternal(extraParams);
+      lastResponse = parseResponse(rw.getBody(), rw.getHeader());
       return lastResponse;
     }
 
-    public APIRequestDeleteAdLabels(String nodeId, APIContext context) {
-      super(context, nodeId, "/adlabels", "DELETE", Arrays.asList(PARAMS));
-    }
-
-    @Override
-    public APIRequestDeleteAdLabels setParam(String param, Object value) {
-      setParamInternal(param, value);
-      return this;
-    }
-
-    @Override
-    public APIRequestDeleteAdLabels setParams(Map<String, Object> params) {
-      setParamsInternal(params);
-      return this;
-    }
-
-
-    public APIRequestDeleteAdLabels setAdlabels (List<Object> adlabels) {
-      this.setParam("adlabels", adlabels);
-      return this;
-    }
-    public APIRequestDeleteAdLabels setAdlabels (String adlabels) {
-      this.setParam("adlabels", adlabels);
-      return this;
-    }
-
-    public APIRequestDeleteAdLabels requestAllFields () {
-      return this.requestAllFields(true);
-    }
-
-    public APIRequestDeleteAdLabels requestAllFields (boolean value) {
-      for (String field : FIELDS) {
-        this.requestField(field, value);
-      }
-      return this;
-    }
-
-    @Override
-    public APIRequestDeleteAdLabels requestFields (List<String> fields) {
-      return this.requestFields(fields, true);
-    }
-
-    @Override
-    public APIRequestDeleteAdLabels requestFields (List<String> fields, boolean value) {
-      for (String field : fields) {
-        this.requestField(field, value);
-      }
-      return this;
-    }
-
-    @Override
-    public APIRequestDeleteAdLabels requestField (String field) {
-      this.requestField(field, true);
-      return this;
-    }
-
-    @Override
-    public APIRequestDeleteAdLabels requestField (String field, boolean value) {
-      this.requestFieldInternal(field, value);
-      return this;
-    }
-
-  }
-
-  public static class APIRequestCreateAdLabel extends APIRequest<AdLabel> {
-
-    AdLabel lastResponse = null;
-    @Override
-    public AdLabel getLastResponse() {
-      return lastResponse;
-    }
-    public static final String[] PARAMS = {
-      "adlabels",
+    public ListenableFuture<AdCreative> executeAsync() throws APIException {
+      return executeAsync(new HashMap<String, Object>());
     };
 
-    public static final String[] FIELDS = {
+    public ListenableFuture<AdCreative> executeAsync(Map<String, Object> extraParams) throws APIException {
+      return Futures.transform(
+        executeAsyncInternal(extraParams),
+        new Function<ResponseWrapper, AdCreative>() {
+           public AdCreative apply(ResponseWrapper result) {
+             try {
+               return APIRequestCreateAdLabel.this.parseResponse(result.getBody(), result.getHeader());
+             } catch (Exception e) {
+               throw new RuntimeException(e);
+             }
+           }
+         },
+         MoreExecutors.directExecutor()
+      );
     };
-
-    @Override
-    public AdLabel parseResponse(String response) throws APIException {
-      return AdLabel.parseResponse(response, getContext(), this).head();
-    }
-
-    @Override
-    public AdLabel execute() throws APIException {
-      return execute(new HashMap<String, Object>());
-    }
-
-    @Override
-    public AdLabel execute(Map<String, Object> extraParams) throws APIException {
-      lastResponse = parseResponse(executeInternal(extraParams));
-      return lastResponse;
-    }
 
     public APIRequestCreateAdLabel(String nodeId, APIContext context) {
       super(context, nodeId, "/adlabels", "POST", Arrays.asList(PARAMS));
@@ -868,6 +1215,119 @@ public class AdCreative extends APINode {
 
   }
 
+  public static class APIRequestGetCreativeInsights extends APIRequest<AdCreativeInsights> {
+
+    APINodeList<AdCreativeInsights> lastResponse = null;
+    @Override
+    public APINodeList<AdCreativeInsights> getLastResponse() {
+      return lastResponse;
+    }
+    public static final String[] PARAMS = {
+    };
+
+    public static final String[] FIELDS = {
+      "aesthetics",
+    };
+
+    @Override
+    public APINodeList<AdCreativeInsights> parseResponse(String response, String header) throws APIException {
+      return AdCreativeInsights.parseResponse(response, getContext(), this, header);
+    }
+
+    @Override
+    public APINodeList<AdCreativeInsights> execute() throws APIException {
+      return execute(new HashMap<String, Object>());
+    }
+
+    @Override
+    public APINodeList<AdCreativeInsights> execute(Map<String, Object> extraParams) throws APIException {
+      ResponseWrapper rw = executeInternal(extraParams);
+      lastResponse = parseResponse(rw.getBody(),rw.getHeader());
+      return lastResponse;
+    }
+
+    public ListenableFuture<APINodeList<AdCreativeInsights>> executeAsync() throws APIException {
+      return executeAsync(new HashMap<String, Object>());
+    };
+
+    public ListenableFuture<APINodeList<AdCreativeInsights>> executeAsync(Map<String, Object> extraParams) throws APIException {
+      return Futures.transform(
+        executeAsyncInternal(extraParams),
+        new Function<ResponseWrapper, APINodeList<AdCreativeInsights>>() {
+           public APINodeList<AdCreativeInsights> apply(ResponseWrapper result) {
+             try {
+               return APIRequestGetCreativeInsights.this.parseResponse(result.getBody(), result.getHeader());
+             } catch (Exception e) {
+               throw new RuntimeException(e);
+             }
+           }
+         },
+         MoreExecutors.directExecutor()
+      );
+    };
+
+    public APIRequestGetCreativeInsights(String nodeId, APIContext context) {
+      super(context, nodeId, "/creative_insights", "GET", Arrays.asList(PARAMS));
+    }
+
+    @Override
+    public APIRequestGetCreativeInsights setParam(String param, Object value) {
+      setParamInternal(param, value);
+      return this;
+    }
+
+    @Override
+    public APIRequestGetCreativeInsights setParams(Map<String, Object> params) {
+      setParamsInternal(params);
+      return this;
+    }
+
+
+    public APIRequestGetCreativeInsights requestAllFields () {
+      return this.requestAllFields(true);
+    }
+
+    public APIRequestGetCreativeInsights requestAllFields (boolean value) {
+      for (String field : FIELDS) {
+        this.requestField(field, value);
+      }
+      return this;
+    }
+
+    @Override
+    public APIRequestGetCreativeInsights requestFields (List<String> fields) {
+      return this.requestFields(fields, true);
+    }
+
+    @Override
+    public APIRequestGetCreativeInsights requestFields (List<String> fields, boolean value) {
+      for (String field : fields) {
+        this.requestField(field, value);
+      }
+      return this;
+    }
+
+    @Override
+    public APIRequestGetCreativeInsights requestField (String field) {
+      this.requestField(field, true);
+      return this;
+    }
+
+    @Override
+    public APIRequestGetCreativeInsights requestField (String field, boolean value) {
+      this.requestFieldInternal(field, value);
+      return this;
+    }
+
+    public APIRequestGetCreativeInsights requestAestheticsField () {
+      return this.requestAestheticsField(true);
+    }
+    public APIRequestGetCreativeInsights requestAestheticsField (boolean value) {
+      this.requestField("aesthetics", value);
+      return this;
+    }
+  }
+
   public static class APIRequestGetPreviews extends APIRequest<AdPreview> {
 
     APINodeList<AdPreview> lastResponse = null;
@@ -877,24 +1337,29 @@ public class AdCreative extends APINode {
     }
     public static final String[] PARAMS = {
       "ad_format",
+      "creative_feature",
+      "dynamic_asset_label",
       "dynamic_creative_spec",
+      "dynamic_customization",
       "end_date",
       "height",
       "locale",
       "place_page_id",
       "post",
       "product_item_ids",
+      "render_type",
       "start_date",
       "width",
     };
 
     public static final String[] FIELDS = {
       "body",
+      "transformation_spec",
     };
 
     @Override
-    public APINodeList<AdPreview> parseResponse(String response) throws APIException {
-      return AdPreview.parseResponse(response, getContext(), this);
+    public APINodeList<AdPreview> parseResponse(String response, String header) throws APIException {
+      return AdPreview.parseResponse(response, getContext(), this, header);
     }
 
     @Override
@@ -904,9 +1369,30 @@ public class AdCreative extends APINode {
 
     @Override
     public APINodeList<AdPreview> execute(Map<String, Object> extraParams) throws APIException {
-      lastResponse = parseResponse(executeInternal(extraParams));
+      ResponseWrapper rw = executeInternal(extraParams);
+      lastResponse = parseResponse(rw.getBody(),rw.getHeader());
       return lastResponse;
     }
+
+    public ListenableFuture<APINodeList<AdPreview>> executeAsync() throws APIException {
+      return executeAsync(new HashMap<String, Object>());
+    };
+
+    public ListenableFuture<APINodeList<AdPreview>> executeAsync(Map<String, Object> extraParams) throws APIException {
+      return Futures.transform(
+        executeAsyncInternal(extraParams),
+        new Function<ResponseWrapper, APINodeList<AdPreview>>() {
+           public APINodeList<AdPreview> apply(ResponseWrapper result) {
+             try {
+               return APIRequestGetPreviews.this.parseResponse(result.getBody(), result.getHeader());
+             } catch (Exception e) {
+               throw new RuntimeException(e);
+             }
+           }
+         },
+         MoreExecutors.directExecutor()
+      );
+    };
 
     public APIRequestGetPreviews(String nodeId, APIContext context) {
       super(context, nodeId, "/previews", "GET", Arrays.asList(PARAMS));
@@ -934,12 +1420,35 @@ public class AdCreative extends APINode {
       return this;
     }
 
+    public APIRequestGetPreviews setCreativeFeature (AdPreview.EnumCreativeFeature creativeFeature) {
+      this.setParam("creative_feature", creativeFeature);
+      return this;
+    }
+    public APIRequestGetPreviews setCreativeFeature (String creativeFeature) {
+      this.setParam("creative_feature", creativeFeature);
+      return this;
+    }
+
+    public APIRequestGetPreviews setDynamicAssetLabel (String dynamicAssetLabel) {
+      this.setParam("dynamic_asset_label", dynamicAssetLabel);
+      return this;
+    }
+
     public APIRequestGetPreviews setDynamicCreativeSpec (Object dynamicCreativeSpec) {
       this.setParam("dynamic_creative_spec", dynamicCreativeSpec);
       return this;
     }
     public APIRequestGetPreviews setDynamicCreativeSpec (String dynamicCreativeSpec) {
       this.setParam("dynamic_creative_spec", dynamicCreativeSpec);
+      return this;
+    }
+
+    public APIRequestGetPreviews setDynamicCustomization (Object dynamicCustomization) {
+      this.setParam("dynamic_customization", dynamicCustomization);
+      return this;
+    }
+    public APIRequestGetPreviews setDynamicCustomization (String dynamicCustomization) {
+      this.setParam("dynamic_customization", dynamicCustomization);
       return this;
     }
 
@@ -986,6 +1495,15 @@ public class AdCreative extends APINode {
     }
     public APIRequestGetPreviews setProductItemIds (String productItemIds) {
       this.setParam("product_item_ids", productItemIds);
+      return this;
+    }
+
+    public APIRequestGetPreviews setRenderType (AdPreview.EnumRenderType renderType) {
+      this.setParam("render_type", renderType);
+      return this;
+    }
+    public APIRequestGetPreviews setRenderType (String renderType) {
+      this.setParam("render_type", renderType);
       return this;
     }
 
@@ -1046,6 +1564,13 @@ public class AdCreative extends APINode {
       this.requestField("body", value);
       return this;
     }
+    public APIRequestGetPreviews requestTransformationSpecField () {
+      return this.requestTransformationSpecField(true);
+    }
+    public APIRequestGetPreviews requestTransformationSpecField (boolean value) {
+      this.requestField("transformation_spec", value);
+      return this;
+    }
   }
 
   public static class APIRequestDelete extends APIRequest<APINode> {
@@ -1066,8 +1591,8 @@ public class AdCreative extends APINode {
     };
 
     @Override
-    public APINode parseResponse(String response) throws APIException {
-      return APINode.parseResponse(response, getContext(), this).head();
+    public APINode parseResponse(String response, String header) throws APIException {
+      return APINode.parseResponse(response, getContext(), this, header).head();
     }
 
     @Override
@@ -1077,9 +1602,30 @@ public class AdCreative extends APINode {
 
     @Override
     public APINode execute(Map<String, Object> extraParams) throws APIException {
-      lastResponse = parseResponse(executeInternal(extraParams));
+      ResponseWrapper rw = executeInternal(extraParams);
+      lastResponse = parseResponse(rw.getBody(), rw.getHeader());
       return lastResponse;
     }
+
+    public ListenableFuture<APINode> executeAsync() throws APIException {
+      return executeAsync(new HashMap<String, Object>());
+    };
+
+    public ListenableFuture<APINode> executeAsync(Map<String, Object> extraParams) throws APIException {
+      return Futures.transform(
+        executeAsyncInternal(extraParams),
+        new Function<ResponseWrapper, APINode>() {
+           public APINode apply(ResponseWrapper result) {
+             try {
+               return APIRequestDelete.this.parseResponse(result.getBody(), result.getHeader());
+             } catch (Exception e) {
+               throw new RuntimeException(e);
+             }
+           }
+         },
+         MoreExecutors.directExecutor()
+      );
+    };
 
     public APIRequestDelete(String nodeId, APIContext context) {
       super(context, nodeId, "/", "DELETE", Arrays.asList(PARAMS));
@@ -1182,32 +1728,63 @@ public class AdCreative extends APINode {
       "adlabels",
       "applink_treatment",
       "asset_feed_spec",
+      "authorization_category",
+      "auto_update",
       "body",
+      "branded_content",
       "branded_content_sponsor_page_id",
+      "bundle_folder_id",
       "call_to_action_type",
+      "categorization_criteria",
+      "category_media_source",
+      "collaborative_ads_lsb_image_bank_id",
+      "contextual_multi_ads",
+      "creative_sourcing_spec",
+      "degrees_of_freedom_spec",
+      "destination_set_id",
+      "dynamic_ad_voice",
+      "effective_authorization_category",
+      "effective_instagram_media_id",
       "effective_instagram_story_id",
       "effective_object_story_id",
+      "enable_direct_install",
+      "enable_launch_instant_app",
+      "facebook_branded_content",
       "id",
       "image_crops",
       "image_hash",
       "image_url",
       "instagram_actor_id",
+      "instagram_branded_content",
       "instagram_permalink_url",
       "instagram_story_id",
+      "instagram_user_id",
+      "interactive_components_spec",
+      "link_deep_link_url",
+      "link_destination_display_url",
       "link_og_id",
       "link_url",
       "name",
       "object_id",
+      "object_store_url",
       "object_story_id",
       "object_story_spec",
       "object_type",
       "object_url",
+      "omnichannel_link_spec",
+      "page_welcome_message",
+      "photo_album_source_object_story_id",
+      "place_page_set_id",
       "platform_customizations",
+      "playable_asset_id",
+      "portrait_customizations",
       "product_set_id",
       "recommender_settings",
+      "source_instagram_media_id",
       "status",
       "template_url",
       "template_url_spec",
+      "thumbnail_id",
       "thumbnail_url",
       "title",
       "url_tags",
@@ -1216,8 +1793,8 @@ public class AdCreative extends APINode {
     };
 
     @Override
-    public AdCreative parseResponse(String response) throws APIException {
-      return AdCreative.parseResponse(response, getContext(), this).head();
+    public AdCreative parseResponse(String response, String header) throws APIException {
+      return AdCreative.parseResponse(response, getContext(), this, header).head();
     }
 
     @Override
@@ -1227,9 +1804,30 @@ public class AdCreative extends APINode {
 
     @Override
     public AdCreative execute(Map<String, Object> extraParams) throws APIException {
-      lastResponse = parseResponse(executeInternal(extraParams));
+      ResponseWrapper rw = executeInternal(extraParams);
+      lastResponse = parseResponse(rw.getBody(), rw.getHeader());
       return lastResponse;
     }
+
+    public ListenableFuture<AdCreative> executeAsync() throws APIException {
+      return executeAsync(new HashMap<String, Object>());
+    };
+
+    public ListenableFuture<AdCreative> executeAsync(Map<String, Object> extraParams) throws APIException {
+      return Futures.transform(
+        executeAsyncInternal(extraParams),
+        new Function<ResponseWrapper, AdCreative>() {
+           public AdCreative apply(ResponseWrapper result) {
+             try {
+               return APIRequestGet.this.parseResponse(result.getBody(), result.getHeader());
+             } catch (Exception e) {
+               throw new RuntimeException(e);
+             }
+           }
+         },
+         MoreExecutors.directExecutor()
+      );
+    };
 
     public APIRequestGet(String nodeId, APIContext context) {
       super(context, nodeId, "/", "GET", Arrays.asList(PARAMS));
@@ -1337,11 +1935,32 @@ public class AdCreative extends APINode {
       this.requestField("asset_feed_spec", value);
       return this;
     }
+    public APIRequestGet requestAuthorizationCategoryField () {
+      return this.requestAuthorizationCategoryField(true);
+    }
+    public APIRequestGet requestAuthorizationCategoryField (boolean value) {
+      this.requestField("authorization_category", value);
+      return this;
+    }
+    public APIRequestGet requestAutoUpdateField () {
+      return this.requestAutoUpdateField(true);
+    }
+    public APIRequestGet requestAutoUpdateField (boolean value) {
+      this.requestField("auto_update", value);
+      return this;
+    }
     public APIRequestGet requestBodyField () {
       return this.requestBodyField(true);
     }
     public APIRequestGet requestBodyField (boolean value) {
       this.requestField("body", value);
+      return this;
+    }
+    public APIRequestGet requestBrandedContentField () {
+      return this.requestBrandedContentField(true);
+    }
+    public APIRequestGet requestBrandedContentField (boolean value) {
+      this.requestField("branded_content", value);
       return this;
     }
     public APIRequestGet requestBrandedContentSponsorPageIdField () {
@@ -1351,11 +1970,88 @@ public class AdCreative extends APINode {
       this.requestField("branded_content_sponsor_page_id", value);
       return this;
     }
+    public APIRequestGet requestBundleFolderIdField () {
+      return this.requestBundleFolderIdField(true);
+    }
+    public APIRequestGet requestBundleFolderIdField (boolean value) {
+      this.requestField("bundle_folder_id", value);
+      return this;
+    }
     public APIRequestGet requestCallToActionTypeField () {
       return this.requestCallToActionTypeField(true);
     }
     public APIRequestGet requestCallToActionTypeField (boolean value) {
       this.requestField("call_to_action_type", value);
+      return this;
+    }
+    public APIRequestGet requestCategorizationCriteriaField () {
+      return this.requestCategorizationCriteriaField(true);
+    }
+    public APIRequestGet requestCategorizationCriteriaField (boolean value) {
+      this.requestField("categorization_criteria", value);
+      return this;
+    }
+    public APIRequestGet requestCategoryMediaSourceField () {
+      return this.requestCategoryMediaSourceField(true);
+    }
+    public APIRequestGet requestCategoryMediaSourceField (boolean value) {
+      this.requestField("category_media_source", value);
+      return this;
+    }
+    public APIRequestGet requestCollaborativeAdsLsbImageBankIdField () {
+      return this.requestCollaborativeAdsLsbImageBankIdField(true);
+    }
+    public APIRequestGet requestCollaborativeAdsLsbImageBankIdField (boolean value) {
+      this.requestField("collaborative_ads_lsb_image_bank_id", value);
+      return this;
+    }
+    public APIRequestGet requestContextualMultiAdsField () {
+      return this.requestContextualMultiAdsField(true);
+    }
+    public APIRequestGet requestContextualMultiAdsField (boolean value) {
+      this.requestField("contextual_multi_ads", value);
+      return this;
+    }
+    public APIRequestGet requestCreativeSourcingSpecField () {
+      return this.requestCreativeSourcingSpecField(true);
+    }
+    public APIRequestGet requestCreativeSourcingSpecField (boolean value) {
+      this.requestField("creative_sourcing_spec", value);
+      return this;
+    }
+    public APIRequestGet requestDegreesOfFreedomSpecField () {
+      return this.requestDegreesOfFreedomSpecField(true);
+    }
+    public APIRequestGet requestDegreesOfFreedomSpecField (boolean value) {
+      this.requestField("degrees_of_freedom_spec", value);
+      return this;
+    }
+    public APIRequestGet requestDestinationSetIdField () {
+      return this.requestDestinationSetIdField(true);
+    }
+    public APIRequestGet requestDestinationSetIdField (boolean value) {
+      this.requestField("destination_set_id", value);
+      return this;
+    }
+    public APIRequestGet requestDynamicAdVoiceField () {
+      return this.requestDynamicAdVoiceField(true);
+    }
+    public APIRequestGet requestDynamicAdVoiceField (boolean value) {
+      this.requestField("dynamic_ad_voice", value);
+      return this;
+    }
+    public APIRequestGet requestEffectiveAuthorizationCategoryField () {
+      return this.requestEffectiveAuthorizationCategoryField(true);
+    }
+    public APIRequestGet requestEffectiveAuthorizationCategoryField (boolean value) {
+      this.requestField("effective_authorization_category", value);
+      return this;
+    }
+    public APIRequestGet requestEffectiveInstagramMediaIdField () {
+      return this.requestEffectiveInstagramMediaIdField(true);
+    }
+    public APIRequestGet requestEffectiveInstagramMediaIdField (boolean value) {
+      this.requestField("effective_instagram_media_id", value);
       return this;
     }
     public APIRequestGet requestEffectiveInstagramStoryIdField () {
@@ -1370,6 +2066,27 @@ public class AdCreative extends APINode {
     }
     public APIRequestGet requestEffectiveObjectStoryIdField (boolean value) {
       this.requestField("effective_object_story_id", value);
+      return this;
+    }
+    public APIRequestGet requestEnableDirectInstallField () {
+      return this.requestEnableDirectInstallField(true);
+    }
+    public APIRequestGet requestEnableDirectInstallField (boolean value) {
+      this.requestField("enable_direct_install", value);
+      return this;
+    }
+    public APIRequestGet requestEnableLaunchInstantAppField () {
+      return this.requestEnableLaunchInstantAppField(true);
+    }
+    public APIRequestGet requestEnableLaunchInstantAppField (boolean value) {
+      this.requestField("enable_launch_instant_app", value);
+      return this;
+    }
+    public APIRequestGet requestFacebookBrandedContentField () {
+      return this.requestFacebookBrandedContentField(true);
+    }
+    public APIRequestGet requestFacebookBrandedContentField (boolean value) {
+      this.requestField("facebook_branded_content", value);
       return this;
     }
     public APIRequestGet requestIdField () {
@@ -1407,6 +2124,13 @@ public class AdCreative extends APINode {
       this.requestField("instagram_actor_id", value);
       return this;
     }
+    public APIRequestGet requestInstagramBrandedContentField () {
+      return this.requestInstagramBrandedContentField(true);
+    }
+    public APIRequestGet requestInstagramBrandedContentField (boolean value) {
+      this.requestField("instagram_branded_content", value);
+      return this;
+    }
     public APIRequestGet requestInstagramPermalinkUrlField () {
       return this.requestInstagramPermalinkUrlField(true);
     }
@@ -1419,6 +2143,34 @@ public class AdCreative extends APINode {
     }
     public APIRequestGet requestInstagramStoryIdField (boolean value) {
       this.requestField("instagram_story_id", value);
+      return this;
+    }
+    public APIRequestGet requestInstagramUserIdField () {
+      return this.requestInstagramUserIdField(true);
+    }
+    public APIRequestGet requestInstagramUserIdField (boolean value) {
+      this.requestField("instagram_user_id", value);
+      return this;
+    }
+    public APIRequestGet requestInteractiveComponentsSpecField () {
+      return this.requestInteractiveComponentsSpecField(true);
+    }
+    public APIRequestGet requestInteractiveComponentsSpecField (boolean value) {
+      this.requestField("interactive_components_spec", value);
+      return this;
+    }
+    public APIRequestGet requestLinkDeepLinkUrlField () {
+      return this.requestLinkDeepLinkUrlField(true);
+    }
+    public APIRequestGet requestLinkDeepLinkUrlField (boolean value) {
+      this.requestField("link_deep_link_url", value);
+      return this;
+    }
+    public APIRequestGet requestLinkDestinationDisplayUrlField () {
+      return this.requestLinkDestinationDisplayUrlField(true);
+    }
+    public APIRequestGet requestLinkDestinationDisplayUrlField (boolean value) {
+      this.requestField("link_destination_display_url", value);
       return this;
     }
     public APIRequestGet requestLinkOgIdField () {
@@ -1449,6 +2201,13 @@ public class AdCreative extends APINode {
       this.requestField("object_id", value);
       return this;
     }
+    public APIRequestGet requestObjectStoreUrlField () {
+      return this.requestObjectStoreUrlField(true);
+    }
+    public APIRequestGet requestObjectStoreUrlField (boolean value) {
+      this.requestField("object_store_url", value);
+      return this;
+    }
     public APIRequestGet requestObjectStoryIdField () {
       return this.requestObjectStoryIdField(true);
     }
@@ -1477,11 +2236,53 @@ public class AdCreative extends APINode {
       this.requestField("object_url", value);
       return this;
     }
+    public APIRequestGet requestOmnichannelLinkSpecField () {
+      return this.requestOmnichannelLinkSpecField(true);
+    }
+    public APIRequestGet requestOmnichannelLinkSpecField (boolean value) {
+      this.requestField("omnichannel_link_spec", value);
+      return this;
+    }
+    public APIRequestGet requestPageWelcomeMessageField () {
+      return this.requestPageWelcomeMessageField(true);
+    }
+    public APIRequestGet requestPageWelcomeMessageField (boolean value) {
+      this.requestField("page_welcome_message", value);
+      return this;
+    }
+    public APIRequestGet requestPhotoAlbumSourceObjectStoryIdField () {
+      return this.requestPhotoAlbumSourceObjectStoryIdField(true);
+    }
+    public APIRequestGet requestPhotoAlbumSourceObjectStoryIdField (boolean value) {
+      this.requestField("photo_album_source_object_story_id", value);
+      return this;
+    }
+    public APIRequestGet requestPlacePageSetIdField () {
+      return this.requestPlacePageSetIdField(true);
+    }
+    public APIRequestGet requestPlacePageSetIdField (boolean value) {
+      this.requestField("place_page_set_id", value);
+      return this;
+    }
     public APIRequestGet requestPlatformCustomizationsField () {
       return this.requestPlatformCustomizationsField(true);
     }
     public APIRequestGet requestPlatformCustomizationsField (boolean value) {
       this.requestField("platform_customizations", value);
+      return this;
+    }
+    public APIRequestGet requestPlayableAssetIdField () {
+      return this.requestPlayableAssetIdField(true);
+    }
+    public APIRequestGet requestPlayableAssetIdField (boolean value) {
+      this.requestField("playable_asset_id", value);
+      return this;
+    }
+    public APIRequestGet requestPortraitCustomizationsField () {
+      return this.requestPortraitCustomizationsField(true);
+    }
+    public APIRequestGet requestPortraitCustomizationsField (boolean value) {
+      this.requestField("portrait_customizations", value);
       return this;
     }
     public APIRequestGet requestProductSetIdField () {
@@ -1496,6 +2297,13 @@ public class AdCreative extends APINode {
     }
     public APIRequestGet requestRecommenderSettingsField (boolean value) {
       this.requestField("recommender_settings", value);
+      return this;
+    }
+    public APIRequestGet requestSourceInstagramMediaIdField () {
+      return this.requestSourceInstagramMediaIdField(true);
+    }
+    public APIRequestGet requestSourceInstagramMediaIdField (boolean value) {
+      this.requestField("source_instagram_media_id", value);
       return this;
     }
     public APIRequestGet requestStatusField () {
@@ -1517,6 +2325,13 @@ public class AdCreative extends APINode {
     }
     public APIRequestGet requestTemplateUrlSpecField (boolean value) {
       this.requestField("template_url_spec", value);
+      return this;
+    }
+    public APIRequestGet requestThumbnailIdField () {
+      return this.requestThumbnailIdField(true);
+    }
+    public APIRequestGet requestThumbnailIdField (boolean value) {
+      this.requestField("thumbnail_id", value);
       return this;
     }
     public APIRequestGet requestThumbnailUrlField () {
@@ -1574,8 +2389,8 @@ public class AdCreative extends APINode {
     };
 
     @Override
-    public AdCreative parseResponse(String response) throws APIException {
-      return AdCreative.parseResponse(response, getContext(), this).head();
+    public AdCreative parseResponse(String response, String header) throws APIException {
+      return AdCreative.parseResponse(response, getContext(), this, header).head();
     }
 
     @Override
@@ -1585,9 +2400,30 @@ public class AdCreative extends APINode {
 
     @Override
     public AdCreative execute(Map<String, Object> extraParams) throws APIException {
-      lastResponse = parseResponse(executeInternal(extraParams));
+      ResponseWrapper rw = executeInternal(extraParams);
+      lastResponse = parseResponse(rw.getBody(), rw.getHeader());
       return lastResponse;
     }
+
+    public ListenableFuture<AdCreative> executeAsync() throws APIException {
+      return executeAsync(new HashMap<String, Object>());
+    };
+
+    public ListenableFuture<AdCreative> executeAsync(Map<String, Object> extraParams) throws APIException {
+      return Futures.transform(
+        executeAsyncInternal(extraParams),
+        new Function<ResponseWrapper, AdCreative>() {
+           public AdCreative apply(ResponseWrapper result) {
+             try {
+               return APIRequestUpdate.this.parseResponse(result.getBody(), result.getHeader());
+             } catch (Exception e) {
+               throw new RuntimeException(e);
+             }
+           }
+         },
+         MoreExecutors.directExecutor()
+      );
+    };
 
     public APIRequestUpdate(String nodeId, APIContext context) {
       super(context, nodeId, "/", "POST", Arrays.asList(PARAMS));
@@ -1672,107 +2508,176 @@ public class AdCreative extends APINode {
 
   }
 
-  public static enum EnumApplinkTreatment {
-      @SerializedName("deeplink_with_web_fallback")
-      VALUE_DEEPLINK_WITH_WEB_FALLBACK("deeplink_with_web_fallback"),
-      @SerializedName("deeplink_with_appstore_fallback")
-      VALUE_DEEPLINK_WITH_APPSTORE_FALLBACK("deeplink_with_appstore_fallback"),
-      @SerializedName("web_only")
-      VALUE_WEB_ONLY("web_only"),
-      NULL(null);
-
-      private String value;
-
-      private EnumApplinkTreatment(String value) {
-        this.value = value;
-      }
-
-      @Override
-      public String toString() {
-        return value;
-      }
-  }
-
   public static enum EnumCallToActionType {
-      @SerializedName("OPEN_LINK")
-      VALUE_OPEN_LINK("OPEN_LINK"),
-      @SerializedName("LIKE_PAGE")
-      VALUE_LIKE_PAGE("LIKE_PAGE"),
-      @SerializedName("SHOP_NOW")
-      VALUE_SHOP_NOW("SHOP_NOW"),
-      @SerializedName("PLAY_GAME")
-      VALUE_PLAY_GAME("PLAY_GAME"),
-      @SerializedName("INSTALL_APP")
-      VALUE_INSTALL_APP("INSTALL_APP"),
-      @SerializedName("USE_APP")
-      VALUE_USE_APP("USE_APP"),
-      @SerializedName("INSTALL_MOBILE_APP")
-      VALUE_INSTALL_MOBILE_APP("INSTALL_MOBILE_APP"),
-      @SerializedName("USE_MOBILE_APP")
-      VALUE_USE_MOBILE_APP("USE_MOBILE_APP"),
-      @SerializedName("BOOK_TRAVEL")
-      VALUE_BOOK_TRAVEL("BOOK_TRAVEL"),
-      @SerializedName("LISTEN_MUSIC")
-      VALUE_LISTEN_MUSIC("LISTEN_MUSIC"),
-      @SerializedName("LEARN_MORE")
-      VALUE_LEARN_MORE("LEARN_MORE"),
-      @SerializedName("SIGN_UP")
-      VALUE_SIGN_UP("SIGN_UP"),
-      @SerializedName("DOWNLOAD")
-      VALUE_DOWNLOAD("DOWNLOAD"),
-      @SerializedName("WATCH_MORE")
-      VALUE_WATCH_MORE("WATCH_MORE"),
-      @SerializedName("NO_BUTTON")
-      VALUE_NO_BUTTON("NO_BUTTON"),
-      @SerializedName("CALL_NOW")
-      VALUE_CALL_NOW("CALL_NOW"),
+      @SerializedName("ADD_TO_CART")
+      VALUE_ADD_TO_CART("ADD_TO_CART"),
       @SerializedName("APPLY_NOW")
       VALUE_APPLY_NOW("APPLY_NOW"),
+      @SerializedName("ASK_ABOUT_SERVICES")
+      VALUE_ASK_ABOUT_SERVICES("ASK_ABOUT_SERVICES"),
+      @SerializedName("ASK_FOR_MORE_INFO")
+      VALUE_ASK_FOR_MORE_INFO("ASK_FOR_MORE_INFO"),
+      @SerializedName("AUDIO_CALL")
+      VALUE_AUDIO_CALL("AUDIO_CALL"),
+      @SerializedName("BOOK_A_CONSULTATION")
+      VALUE_BOOK_A_CONSULTATION("BOOK_A_CONSULTATION"),
+      @SerializedName("BOOK_NOW")
+      VALUE_BOOK_NOW("BOOK_NOW"),
+      @SerializedName("BOOK_TRAVEL")
+      VALUE_BOOK_TRAVEL("BOOK_TRAVEL"),
+      @SerializedName("BUY")
+      VALUE_BUY("BUY"),
       @SerializedName("BUY_NOW")
       VALUE_BUY_NOW("BUY_NOW"),
+      @SerializedName("BUY_TICKETS")
+      VALUE_BUY_TICKETS("BUY_TICKETS"),
+      @SerializedName("BUY_VIA_MESSAGE")
+      VALUE_BUY_VIA_MESSAGE("BUY_VIA_MESSAGE"),
+      @SerializedName("CALL")
+      VALUE_CALL("CALL"),
+      @SerializedName("CALL_ME")
+      VALUE_CALL_ME("CALL_ME"),
+      @SerializedName("CALL_NOW")
+      VALUE_CALL_NOW("CALL_NOW"),
+      @SerializedName("CHAT_WITH_US")
+      VALUE_CHAT_WITH_US("CHAT_WITH_US"),
+      @SerializedName("CONFIRM")
+      VALUE_CONFIRM("CONFIRM"),
+      @SerializedName("CONTACT")
+      VALUE_CONTACT("CONTACT"),
+      @SerializedName("CONTACT_US")
+      VALUE_CONTACT_US("CONTACT_US"),
+      @SerializedName("DONATE")
+      VALUE_DONATE("DONATE"),
+      @SerializedName("DONATE_NOW")
+      VALUE_DONATE_NOW("DONATE_NOW"),
+      @SerializedName("DOWNLOAD")
+      VALUE_DOWNLOAD("DOWNLOAD"),
+      @SerializedName("EVENT_RSVP")
+      VALUE_EVENT_RSVP("EVENT_RSVP"),
+      @SerializedName("FIND_A_GROUP")
+      VALUE_FIND_A_GROUP("FIND_A_GROUP"),
+      @SerializedName("FIND_YOUR_GROUPS")
+      VALUE_FIND_YOUR_GROUPS("FIND_YOUR_GROUPS"),
+      @SerializedName("FOLLOW_NEWS_STORYLINE")
+      VALUE_FOLLOW_NEWS_STORYLINE("FOLLOW_NEWS_STORYLINE"),
+      @SerializedName("FOLLOW_PAGE")
+      VALUE_FOLLOW_PAGE("FOLLOW_PAGE"),
+      @SerializedName("FOLLOW_USER")
+      VALUE_FOLLOW_USER("FOLLOW_USER"),
+      @SerializedName("GET_A_QUOTE")
+      VALUE_GET_A_QUOTE("GET_A_QUOTE"),
+      @SerializedName("GET_DIRECTIONS")
+      VALUE_GET_DIRECTIONS("GET_DIRECTIONS"),
       @SerializedName("GET_OFFER")
       VALUE_GET_OFFER("GET_OFFER"),
       @SerializedName("GET_OFFER_VIEW")
       VALUE_GET_OFFER_VIEW("GET_OFFER_VIEW"),
-      @SerializedName("GET_DIRECTIONS")
-      VALUE_GET_DIRECTIONS("GET_DIRECTIONS"),
-      @SerializedName("MESSAGE_PAGE")
-      VALUE_MESSAGE_PAGE("MESSAGE_PAGE"),
-      @SerializedName("MESSAGE_USER")
-      VALUE_MESSAGE_USER("MESSAGE_USER"),
-      @SerializedName("SUBSCRIBE")
-      VALUE_SUBSCRIBE("SUBSCRIBE"),
-      @SerializedName("SELL_NOW")
-      VALUE_SELL_NOW("SELL_NOW"),
-      @SerializedName("DONATE_NOW")
-      VALUE_DONATE_NOW("DONATE_NOW"),
+      @SerializedName("GET_PROMOTIONS")
+      VALUE_GET_PROMOTIONS("GET_PROMOTIONS"),
       @SerializedName("GET_QUOTE")
       VALUE_GET_QUOTE("GET_QUOTE"),
-      @SerializedName("CONTACT_US")
-      VALUE_CONTACT_US("CONTACT_US"),
-      @SerializedName("START_ORDER")
-      VALUE_START_ORDER("START_ORDER"),
-      @SerializedName("RECORD_NOW")
-      VALUE_RECORD_NOW("RECORD_NOW"),
-      @SerializedName("VOTE_NOW")
-      VALUE_VOTE_NOW("VOTE_NOW"),
-      @SerializedName("REGISTER_NOW")
-      VALUE_REGISTER_NOW("REGISTER_NOW"),
-      @SerializedName("REQUEST_TIME")
-      VALUE_REQUEST_TIME("REQUEST_TIME"),
-      @SerializedName("SEE_MENU")
-      VALUE_SEE_MENU("SEE_MENU"),
-      @SerializedName("EMAIL_NOW")
-      VALUE_EMAIL_NOW("EMAIL_NOW"),
       @SerializedName("GET_SHOWTIMES")
       VALUE_GET_SHOWTIMES("GET_SHOWTIMES"),
-      @SerializedName("TRY_IT")
-      VALUE_TRY_IT("TRY_IT"),
+      @SerializedName("GET_STARTED")
+      VALUE_GET_STARTED("GET_STARTED"),
+      @SerializedName("INQUIRE_NOW")
+      VALUE_INQUIRE_NOW("INQUIRE_NOW"),
+      @SerializedName("INSTALL_APP")
+      VALUE_INSTALL_APP("INSTALL_APP"),
+      @SerializedName("INSTALL_MOBILE_APP")
+      VALUE_INSTALL_MOBILE_APP("INSTALL_MOBILE_APP"),
+      @SerializedName("JOIN_CHANNEL")
+      VALUE_JOIN_CHANNEL("JOIN_CHANNEL"),
+      @SerializedName("LEARN_MORE")
+      VALUE_LEARN_MORE("LEARN_MORE"),
+      @SerializedName("LIKE_PAGE")
+      VALUE_LIKE_PAGE("LIKE_PAGE"),
+      @SerializedName("LISTEN_MUSIC")
+      VALUE_LISTEN_MUSIC("LISTEN_MUSIC"),
       @SerializedName("LISTEN_NOW")
       VALUE_LISTEN_NOW("LISTEN_NOW"),
-      @SerializedName("OPEN_MOVIES")
-      VALUE_OPEN_MOVIES("OPEN_MOVIES"),
-      NULL(null);
+      @SerializedName("MAKE_AN_APPOINTMENT")
+      VALUE_MAKE_AN_APPOINTMENT("MAKE_AN_APPOINTMENT"),
+      @SerializedName("MESSAGE_PAGE")
+      VALUE_MESSAGE_PAGE("MESSAGE_PAGE"),
+      @SerializedName("MOBILE_DOWNLOAD")
+      VALUE_MOBILE_DOWNLOAD("MOBILE_DOWNLOAD"),
+      @SerializedName("NO_BUTTON")
+      VALUE_NO_BUTTON("NO_BUTTON"),
+      @SerializedName("OPEN_INSTANT_APP")
+      VALUE_OPEN_INSTANT_APP("OPEN_INSTANT_APP"),
+      @SerializedName("OPEN_LINK")
+      VALUE_OPEN_LINK("OPEN_LINK"),
+      @SerializedName("ORDER_NOW")
+      VALUE_ORDER_NOW("ORDER_NOW"),
+      @SerializedName("PAY_TO_ACCESS")
+      VALUE_PAY_TO_ACCESS("PAY_TO_ACCESS"),
+      @SerializedName("PLAY_GAME")
+      VALUE_PLAY_GAME("PLAY_GAME"),
+      @SerializedName("PLAY_GAME_ON_FACEBOOK")
+      VALUE_PLAY_GAME_ON_FACEBOOK("PLAY_GAME_ON_FACEBOOK"),
+      @SerializedName("PURCHASE_GIFT_CARDS")
+      VALUE_PURCHASE_GIFT_CARDS("PURCHASE_GIFT_CARDS"),
+      @SerializedName("RAISE_MONEY")
+      VALUE_RAISE_MONEY("RAISE_MONEY"),
+      @SerializedName("RECORD_NOW")
+      VALUE_RECORD_NOW("RECORD_NOW"),
+      @SerializedName("REFER_FRIENDS")
+      VALUE_REFER_FRIENDS("REFER_FRIENDS"),
+      @SerializedName("REQUEST_TIME")
+      VALUE_REQUEST_TIME("REQUEST_TIME"),
+      @SerializedName("SAY_THANKS")
+      VALUE_SAY_THANKS("SAY_THANKS"),
+      @SerializedName("SEE_MORE")
+      VALUE_SEE_MORE("SEE_MORE"),
+      @SerializedName("SELL_NOW")
+      VALUE_SELL_NOW("SELL_NOW"),
+      @SerializedName("SEND_A_GIFT")
+      VALUE_SEND_A_GIFT("SEND_A_GIFT"),
+      @SerializedName("SEND_GIFT_MONEY")
+      VALUE_SEND_GIFT_MONEY("SEND_GIFT_MONEY"),
+      @SerializedName("SEND_UPDATES")
+      VALUE_SEND_UPDATES("SEND_UPDATES"),
+      @SerializedName("SHARE")
+      VALUE_SHARE("SHARE"),
+      @SerializedName("SHOP_NOW")
+      VALUE_SHOP_NOW("SHOP_NOW"),
+      @SerializedName("SIGN_UP")
+      VALUE_SIGN_UP("SIGN_UP"),
+      @SerializedName("SOTTO_SUBSCRIBE")
+      VALUE_SOTTO_SUBSCRIBE("SOTTO_SUBSCRIBE"),
+      @SerializedName("START_ORDER")
+      VALUE_START_ORDER("START_ORDER"),
+      @SerializedName("SUBSCRIBE")
+      VALUE_SUBSCRIBE("SUBSCRIBE"),
+      @SerializedName("SWIPE_UP_PRODUCT")
+      VALUE_SWIPE_UP_PRODUCT("SWIPE_UP_PRODUCT"),
+      @SerializedName("SWIPE_UP_SHOP")
+      VALUE_SWIPE_UP_SHOP("SWIPE_UP_SHOP"),
+      @SerializedName("UPDATE_APP")
+      VALUE_UPDATE_APP("UPDATE_APP"),
+      @SerializedName("USE_APP")
+      VALUE_USE_APP("USE_APP"),
+      @SerializedName("USE_MOBILE_APP")
+      VALUE_USE_MOBILE_APP("USE_MOBILE_APP"),
+      @SerializedName("VIDEO_ANNOTATION")
+      VALUE_VIDEO_ANNOTATION("VIDEO_ANNOTATION"),
+      @SerializedName("VIDEO_CALL")
+      VALUE_VIDEO_CALL("VIDEO_CALL"),
+      @SerializedName("VIEW_PRODUCT")
+      VALUE_VIEW_PRODUCT("VIEW_PRODUCT"),
+      @SerializedName("VISIT_PAGES_FEED")
+      VALUE_VISIT_PAGES_FEED("VISIT_PAGES_FEED"),
+      @SerializedName("WATCH_MORE")
+      VALUE_WATCH_MORE("WATCH_MORE"),
+      @SerializedName("WATCH_VIDEO")
+      VALUE_WATCH_VIDEO("WATCH_VIDEO"),
+      @SerializedName("WHATSAPP_MESSAGE")
+      VALUE_WHATSAPP_MESSAGE("WHATSAPP_MESSAGE"),
+      @SerializedName("WOODHENGE_SUPPORT")
+      VALUE_WOODHENGE_SUPPORT("WOODHENGE_SUPPORT"),
+      ;
 
       private String value;
 
@@ -1793,12 +2698,18 @@ public class AdCreative extends APINode {
       VALUE_DOMAIN("DOMAIN"),
       @SerializedName("EVENT")
       VALUE_EVENT("EVENT"),
+      @SerializedName("INVALID")
+      VALUE_INVALID("INVALID"),
       @SerializedName("OFFER")
       VALUE_OFFER("OFFER"),
       @SerializedName("PAGE")
       VALUE_PAGE("PAGE"),
       @SerializedName("PHOTO")
       VALUE_PHOTO("PHOTO"),
+      @SerializedName("POST_DELETED")
+      VALUE_POST_DELETED("POST_DELETED"),
+      @SerializedName("PRIVACY_CHECK_FAIL")
+      VALUE_PRIVACY_CHECK_FAIL("PRIVACY_CHECK_FAIL"),
       @SerializedName("SHARE")
       VALUE_SHARE("SHARE"),
       @SerializedName("STATUS")
@@ -1807,9 +2718,7 @@ public class AdCreative extends APINode {
       VALUE_STORE_ITEM("STORE_ITEM"),
       @SerializedName("VIDEO")
       VALUE_VIDEO("VIDEO"),
-      @SerializedName("INVALID")
-      VALUE_INVALID("INVALID"),
-      NULL(null);
+      ;
 
       private String value;
 
@@ -1828,11 +2737,103 @@ public class AdCreative extends APINode {
       VALUE_ACTIVE("ACTIVE"),
       @SerializedName("DELETED")
       VALUE_DELETED("DELETED"),
-      NULL(null);
+      @SerializedName("IN_PROCESS")
+      VALUE_IN_PROCESS("IN_PROCESS"),
+      @SerializedName("WITH_ISSUES")
+      VALUE_WITH_ISSUES("WITH_ISSUES"),
+      ;
 
       private String value;
 
       private EnumStatus(String value) {
+        this.value = value;
+      }
+
+      @Override
+      public String toString() {
+        return value;
+      }
+  }
+
+  public static enum EnumApplinkTreatment {
+      @SerializedName("automatic")
+      VALUE_AUTOMATIC("automatic"),
+      @SerializedName("deeplink_with_appstore_fallback")
+      VALUE_DEEPLINK_WITH_APPSTORE_FALLBACK("deeplink_with_appstore_fallback"),
+      @SerializedName("deeplink_with_web_fallback")
+      VALUE_DEEPLINK_WITH_WEB_FALLBACK("deeplink_with_web_fallback"),
+      @SerializedName("web_only")
+      VALUE_WEB_ONLY("web_only"),
+      ;
+
+      private String value;
+
+      private EnumApplinkTreatment(String value) {
+        this.value = value;
+      }
+
+      @Override
+      public String toString() {
+        return value;
+      }
+  }
+
+  public static enum EnumAuthorizationCategory {
+      @SerializedName("NONE")
+      VALUE_NONE("NONE"),
+      @SerializedName("POLITICAL")
+      VALUE_POLITICAL("POLITICAL"),
+      @SerializedName("POLITICAL_WITH_DIGITALLY_CREATED_MEDIA")
+      VALUE_POLITICAL_WITH_DIGITALLY_CREATED_MEDIA("POLITICAL_WITH_DIGITALLY_CREATED_MEDIA"),
+      ;
+
+      private String value;
+
+      private EnumAuthorizationCategory(String value) {
+        this.value = value;
+      }
+
+      @Override
+      public String toString() {
+        return value;
+      }
+  }
+
+  public static enum EnumCategorizationCriteria {
+      @SerializedName("brand")
+      VALUE_BRAND("brand"),
+      @SerializedName("category")
+      VALUE_CATEGORY("category"),
+      @SerializedName("product_type")
+      VALUE_PRODUCT_TYPE("product_type"),
+      ;
+
+      private String value;
+
+      private EnumCategorizationCriteria(String value) {
+        this.value = value;
+      }
+
+      @Override
+      public String toString() {
+        return value;
+      }
+  }
+
+  public static enum EnumCategoryMediaSource {
+      @SerializedName("CATEGORY")
+      VALUE_CATEGORY("CATEGORY"),
+      @SerializedName("MIXED")
+      VALUE_MIXED("MIXED"),
+      @SerializedName("PRODUCTS_COLLAGE")
+      VALUE_PRODUCTS_COLLAGE("PRODUCTS_COLLAGE"),
+      @SerializedName("PRODUCTS_SLIDESHOW")
+      VALUE_PRODUCTS_SLIDESHOW("PRODUCTS_SLIDESHOW"),
+      ;
+
+      private String value;
+
+      private EnumCategoryMediaSource(String value) {
         this.value = value;
       }
 
@@ -1847,7 +2848,7 @@ public class AdCreative extends APINode {
       VALUE_DYNAMIC("DYNAMIC"),
       @SerializedName("STORY_OWNER")
       VALUE_STORY_OWNER("STORY_OWNER"),
-      NULL(null);
+      ;
 
       private String value;
 
@@ -1866,7 +2867,7 @@ public class AdCreative extends APINode {
       VALUE_ALL("ALL"),
       @SerializedName("ANY")
       VALUE_ANY("ANY"),
-      NULL(null);
+      ;
 
       private String value;
 
@@ -1900,32 +2901,63 @@ public class AdCreative extends APINode {
     this.mAdlabels = instance.mAdlabels;
     this.mApplinkTreatment = instance.mApplinkTreatment;
     this.mAssetFeedSpec = instance.mAssetFeedSpec;
+    this.mAuthorizationCategory = instance.mAuthorizationCategory;
+    this.mAutoUpdate = instance.mAutoUpdate;
     this.mBody = instance.mBody;
+    this.mBrandedContent = instance.mBrandedContent;
     this.mBrandedContentSponsorPageId = instance.mBrandedContentSponsorPageId;
+    this.mBundleFolderId = instance.mBundleFolderId;
     this.mCallToActionType = instance.mCallToActionType;
+    this.mCategorizationCriteria = instance.mCategorizationCriteria;
+    this.mCategoryMediaSource = instance.mCategoryMediaSource;
+    this.mCollaborativeAdsLsbImageBankId = instance.mCollaborativeAdsLsbImageBankId;
+    this.mContextualMultiAds = instance.mContextualMultiAds;
+    this.mCreativeSourcingSpec = instance.mCreativeSourcingSpec;
+    this.mDegreesOfFreedomSpec = instance.mDegreesOfFreedomSpec;
+    this.mDestinationSetId = instance.mDestinationSetId;
+    this.mDynamicAdVoice = instance.mDynamicAdVoice;
+    this.mEffectiveAuthorizationCategory = instance.mEffectiveAuthorizationCategory;
+    this.mEffectiveInstagramMediaId = instance.mEffectiveInstagramMediaId;
     this.mEffectiveInstagramStoryId = instance.mEffectiveInstagramStoryId;
     this.mEffectiveObjectStoryId = instance.mEffectiveObjectStoryId;
+    this.mEnableDirectInstall = instance.mEnableDirectInstall;
+    this.mEnableLaunchInstantApp = instance.mEnableLaunchInstantApp;
+    this.mFacebookBrandedContent = instance.mFacebookBrandedContent;
     this.mId = instance.mId;
     this.mImageCrops = instance.mImageCrops;
     this.mImageHash = instance.mImageHash;
     this.mImageUrl = instance.mImageUrl;
     this.mInstagramActorId = instance.mInstagramActorId;
+    this.mInstagramBrandedContent = instance.mInstagramBrandedContent;
     this.mInstagramPermalinkUrl = instance.mInstagramPermalinkUrl;
     this.mInstagramStoryId = instance.mInstagramStoryId;
+    this.mInstagramUserId = instance.mInstagramUserId;
+    this.mInteractiveComponentsSpec = instance.mInteractiveComponentsSpec;
+    this.mLinkDeepLinkUrl = instance.mLinkDeepLinkUrl;
+    this.mLinkDestinationDisplayUrl = instance.mLinkDestinationDisplayUrl;
     this.mLinkOgId = instance.mLinkOgId;
     this.mLinkUrl = instance.mLinkUrl;
     this.mName = instance.mName;
     this.mObjectId = instance.mObjectId;
+    this.mObjectStoreUrl = instance.mObjectStoreUrl;
     this.mObjectStoryId = instance.mObjectStoryId;
     this.mObjectStorySpec = instance.mObjectStorySpec;
     this.mObjectType = instance.mObjectType;
     this.mObjectUrl = instance.mObjectUrl;
+    this.mOmnichannelLinkSpec = instance.mOmnichannelLinkSpec;
+    this.mPageWelcomeMessage = instance.mPageWelcomeMessage;
+    this.mPhotoAlbumSourceObjectStoryId = instance.mPhotoAlbumSourceObjectStoryId;
+    this.mPlacePageSetId = instance.mPlacePageSetId;
     this.mPlatformCustomizations = instance.mPlatformCustomizations;
+    this.mPlayableAssetId = instance.mPlayableAssetId;
+    this.mPortraitCustomizations = instance.mPortraitCustomizations;
     this.mProductSetId = instance.mProductSetId;
     this.mRecommenderSettings = instance.mRecommenderSettings;
+    this.mSourceInstagramMediaId = instance.mSourceInstagramMediaId;
     this.mStatus = instance.mStatus;
     this.mTemplateUrl = instance.mTemplateUrl;
     this.mTemplateUrlSpec = instance.mTemplateUrlSpec;
+    this.mThumbnailId = instance.mThumbnailId;
     this.mThumbnailUrl = instance.mThumbnailUrl;
     this.mTitle = instance.mTitle;
     this.mUrlTags = instance.mUrlTags;
@@ -1939,8 +2971,8 @@ public class AdCreative extends APINode {
 
   public static APIRequest.ResponseParser<AdCreative> getParser() {
     return new APIRequest.ResponseParser<AdCreative>() {
-      public APINodeList<AdCreative> parseResponse(String response, APIContext context, APIRequest<AdCreative> request) throws MalformedResponseException {
-        return AdCreative.parseResponse(response, context, request);
+      public APINodeList<AdCreative> parseResponse(String response, APIContext context, APIRequest<AdCreative> request, String header) throws MalformedResponseException {
+        return AdCreative.parseResponse(response, context, request, header);
       }
     };
   }

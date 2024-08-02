@@ -1,24 +1,9 @@
-/**
- * Copyright (c) 2015-present, Facebook, Inc. All rights reserved.
+/*
+ * Copyright (c) Meta Platforms, Inc. and affiliates.
+ * All rights reserved.
  *
- * You are hereby granted a non-exclusive, worldwide, royalty-free license to
- * use, copy, modify, and distribute this software in source code or binary
- * form for use in connection with the web services and APIs provided by
- * Facebook.
- *
- * As with any software that integrates with the Facebook platform, your use
- * of this software is subject to the Facebook Developer Principles and
- * Policies [http://developers.facebook.com/policy/]. This copyright notice
- * shall be included in all copies or substantial portions of the software.
- *
- * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
- * IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
- * FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL
- * THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
- * LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING
- * FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
- * DEALINGS IN THE SOFTWARE.
- *
+ * This source code is licensed under the license found in the
+ * LICENSE file in the root directory of this source tree.
  */
 
 package com.facebook.ads.sdk;
@@ -31,6 +16,11 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
+import com.google.common.base.Function;
+import com.google.common.util.concurrent.Futures;
+import com.google.common.util.concurrent.ListenableFuture;
+import com.google.common.util.concurrent.MoreExecutors;
+import com.google.common.util.concurrent.SettableFuture;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonArray;
 import com.google.gson.annotations.SerializedName;
@@ -52,7 +42,7 @@ import com.facebook.ads.sdk.APIException.MalformedResponseException;
  */
 public class HotelRoom extends APINode {
   @SerializedName("applinks")
-  private AppLinks mApplinks = null;
+  private CatalogItemAppLinks mApplinks = null;
   @SerializedName("base_price")
   private String mBasePrice = null;
   @SerializedName("currency")
@@ -84,6 +74,7 @@ public class HotelRoom extends APINode {
 
   public HotelRoom(String id, APIContext context) {
     this.mId = id;
+
     this.context = context;
   }
 
@@ -97,12 +88,22 @@ public class HotelRoom extends APINode {
     return fetchById(id.toString(), context);
   }
 
+  public static ListenableFuture<HotelRoom> fetchByIdAsync(Long id, APIContext context) throws APIException {
+    return fetchByIdAsync(id.toString(), context);
+  }
+
   public static HotelRoom fetchById(String id, APIContext context) throws APIException {
-    HotelRoom hotelRoom =
+    return
       new APIRequestGet(id, context)
       .requestAllFields()
       .execute();
-    return hotelRoom;
+  }
+
+  public static ListenableFuture<HotelRoom> fetchByIdAsync(String id, APIContext context) throws APIException {
+    return
+      new APIRequestGet(id, context)
+      .requestAllFields()
+      .executeAsync();
   }
 
   public static APINodeList<HotelRoom> fetchByIds(List<String> ids, List<String> fields, APIContext context) throws APIException {
@@ -114,6 +115,14 @@ public class HotelRoom extends APINode {
     );
   }
 
+  public static ListenableFuture<APINodeList<HotelRoom>> fetchByIdsAsync(List<String> ids, List<String> fields, APIContext context) throws APIException {
+    return
+      new APIRequest(context, "", "/", "GET", HotelRoom.getParser())
+        .setParam("ids", APIRequest.joinStringList(ids))
+        .requestFields(fields)
+        .executeAsyncBase();
+  }
+
   private String getPrefixedId() {
     return getId();
   }
@@ -121,7 +130,7 @@ public class HotelRoom extends APINode {
   public String getId() {
     return getFieldId().toString();
   }
-  public static HotelRoom loadJSON(String json, APIContext context) {
+  public static HotelRoom loadJSON(String json, APIContext context, String header) {
     HotelRoom hotelRoom = getGson().fromJson(json, HotelRoom.class);
     if (context.isDebug()) {
       JsonParser parser = new JsonParser();
@@ -134,15 +143,16 @@ public class HotelRoom extends APINode {
         context.log("[Warning] When parsing response, object is not consistent with JSON:");
         context.log("[JSON]" + o1);
         context.log("[Object]" + o2);
-      };
+      }
     }
     hotelRoom.context = context;
     hotelRoom.rawValue = json;
+    hotelRoom.header = header;
     return hotelRoom;
   }
 
-  public static APINodeList<HotelRoom> parseResponse(String json, APIContext context, APIRequest request) throws MalformedResponseException {
-    APINodeList<HotelRoom> hotelRooms = new APINodeList<HotelRoom>(request, json);
+  public static APINodeList<HotelRoom> parseResponse(String json, APIContext context, APIRequest request, String header) throws MalformedResponseException {
+    APINodeList<HotelRoom> hotelRooms = new APINodeList<HotelRoom>(request, json, header);
     JsonArray arr;
     JsonObject obj;
     JsonParser parser = new JsonParser();
@@ -153,23 +163,32 @@ public class HotelRoom extends APINode {
         // First, check if it's a pure JSON Array
         arr = result.getAsJsonArray();
         for (int i = 0; i < arr.size(); i++) {
-          hotelRooms.add(loadJSON(arr.get(i).getAsJsonObject().toString(), context));
+          hotelRooms.add(loadJSON(arr.get(i).getAsJsonObject().toString(), context, header));
         };
         return hotelRooms;
       } else if (result.isJsonObject()) {
         obj = result.getAsJsonObject();
         if (obj.has("data")) {
           if (obj.has("paging")) {
-            JsonObject paging = obj.get("paging").getAsJsonObject().get("cursors").getAsJsonObject();
-            String before = paging.has("before") ? paging.get("before").getAsString() : null;
-            String after = paging.has("after") ? paging.get("after").getAsString() : null;
-            hotelRooms.setPaging(before, after);
+            JsonObject paging = obj.get("paging").getAsJsonObject();
+            if (paging.has("cursors")) {
+                JsonObject cursors = paging.get("cursors").getAsJsonObject();
+                String before = cursors.has("before") ? cursors.get("before").getAsString() : null;
+                String after = cursors.has("after") ? cursors.get("after").getAsString() : null;
+                hotelRooms.setCursors(before, after);
+            }
+            String previous = paging.has("previous") ? paging.get("previous").getAsString() : null;
+            String next = paging.has("next") ? paging.get("next").getAsString() : null;
+            hotelRooms.setPaging(previous, next);
+            if (context.hasAppSecret()) {
+              hotelRooms.setAppSecret(context.getAppSecretProof());
+            }
           }
           if (obj.get("data").isJsonArray()) {
             // Second, check if it's a JSON array with "data"
             arr = obj.get("data").getAsJsonArray();
             for (int i = 0; i < arr.size(); i++) {
-              hotelRooms.add(loadJSON(arr.get(i).getAsJsonObject().toString(), context));
+              hotelRooms.add(loadJSON(arr.get(i).getAsJsonObject().toString(), context, header));
             };
           } else if (obj.get("data").isJsonObject()) {
             // Third, check if it's a JSON object with "data"
@@ -180,13 +199,13 @@ public class HotelRoom extends APINode {
                 isRedownload = true;
                 obj = obj.getAsJsonObject(s);
                 for (Map.Entry<String, JsonElement> entry : obj.entrySet()) {
-                  hotelRooms.add(loadJSON(entry.getValue().toString(), context));
+                  hotelRooms.add(loadJSON(entry.getValue().toString(), context, header));
                 }
                 break;
               }
             }
             if (!isRedownload) {
-              hotelRooms.add(loadJSON(obj.toString(), context));
+              hotelRooms.add(loadJSON(obj.toString(), context, header));
             }
           }
           return hotelRooms;
@@ -194,7 +213,7 @@ public class HotelRoom extends APINode {
           // Fourth, check if it's a map of image objects
           obj = obj.get("images").getAsJsonObject();
           for (Map.Entry<String, JsonElement> entry : obj.entrySet()) {
-              hotelRooms.add(loadJSON(entry.getValue().toString(), context));
+              hotelRooms.add(loadJSON(entry.getValue().toString(), context, header));
           }
           return hotelRooms;
         } else {
@@ -213,7 +232,7 @@ public class HotelRoom extends APINode {
               value.getAsJsonObject().get("id") != null &&
               value.getAsJsonObject().get("id").getAsString().equals(key)
             ) {
-              hotelRooms.add(loadJSON(value.toString(), context));
+              hotelRooms.add(loadJSON(value.toString(), context, header));
             } else {
               isIdIndexedArray = false;
               break;
@@ -225,7 +244,7 @@ public class HotelRoom extends APINode {
 
           // Sixth, check if it's pure JsonObject
           hotelRooms.clear();
-          hotelRooms.add(loadJSON(json, context));
+          hotelRooms.add(loadJSON(json, context, header));
           return hotelRooms;
         }
       }
@@ -253,23 +272,16 @@ public class HotelRoom extends APINode {
     return getGson().toJson(this);
   }
 
-  public APIRequestDelete delete() {
-    return new APIRequestDelete(this.getPrefixedId().toString(), context);
+  public APIRequestGetPricingVariables getPricingVariables() {
+    return new APIRequestGetPricingVariables(this.getPrefixedId().toString(), context);
   }
 
   public APIRequestGet get() {
     return new APIRequestGet(this.getPrefixedId().toString(), context);
   }
 
-  public APIRequestUpdate update() {
-    return new APIRequestUpdate(this.getPrefixedId().toString(), context);
-  }
 
-
-  public AppLinks getFieldApplinks() {
-    if (mApplinks != null) {
-      mApplinks.context = getContext();
-    }
+  public CatalogItemAppLinks getFieldApplinks() {
     return mApplinks;
   }
 
@@ -315,57 +327,82 @@ public class HotelRoom extends APINode {
 
 
 
-  public static class APIRequestDelete extends APIRequest<APINode> {
+  public static class APIRequestGetPricingVariables extends APIRequest<DynamicPriceConfigByDate> {
 
-    APINode lastResponse = null;
+    APINodeList<DynamicPriceConfigByDate> lastResponse = null;
     @Override
-    public APINode getLastResponse() {
+    public APINodeList<DynamicPriceConfigByDate> getLastResponse() {
       return lastResponse;
     }
     public static final String[] PARAMS = {
     };
 
     public static final String[] FIELDS = {
+      "checkin_date",
+      "prices",
+      "prices_pretty",
+      "id",
     };
 
     @Override
-    public APINode parseResponse(String response) throws APIException {
-      return APINode.parseResponse(response, getContext(), this).head();
+    public APINodeList<DynamicPriceConfigByDate> parseResponse(String response, String header) throws APIException {
+      return DynamicPriceConfigByDate.parseResponse(response, getContext(), this, header);
     }
 
     @Override
-    public APINode execute() throws APIException {
+    public APINodeList<DynamicPriceConfigByDate> execute() throws APIException {
       return execute(new HashMap<String, Object>());
     }
 
     @Override
-    public APINode execute(Map<String, Object> extraParams) throws APIException {
-      lastResponse = parseResponse(executeInternal(extraParams));
+    public APINodeList<DynamicPriceConfigByDate> execute(Map<String, Object> extraParams) throws APIException {
+      ResponseWrapper rw = executeInternal(extraParams);
+      lastResponse = parseResponse(rw.getBody(),rw.getHeader());
       return lastResponse;
     }
 
-    public APIRequestDelete(String nodeId, APIContext context) {
-      super(context, nodeId, "/", "DELETE", Arrays.asList(PARAMS));
+    public ListenableFuture<APINodeList<DynamicPriceConfigByDate>> executeAsync() throws APIException {
+      return executeAsync(new HashMap<String, Object>());
+    };
+
+    public ListenableFuture<APINodeList<DynamicPriceConfigByDate>> executeAsync(Map<String, Object> extraParams) throws APIException {
+      return Futures.transform(
+        executeAsyncInternal(extraParams),
+        new Function<ResponseWrapper, APINodeList<DynamicPriceConfigByDate>>() {
+           public APINodeList<DynamicPriceConfigByDate> apply(ResponseWrapper result) {
+             try {
+               return APIRequestGetPricingVariables.this.parseResponse(result.getBody(), result.getHeader());
+             } catch (Exception e) {
+               throw new RuntimeException(e);
+             }
+           }
+         },
+         MoreExecutors.directExecutor()
+      );
+    };
+
+    public APIRequestGetPricingVariables(String nodeId, APIContext context) {
+      super(context, nodeId, "/pricing_variables", "GET", Arrays.asList(PARAMS));
     }
 
     @Override
-    public APIRequestDelete setParam(String param, Object value) {
+    public APIRequestGetPricingVariables setParam(String param, Object value) {
       setParamInternal(param, value);
       return this;
     }
 
     @Override
-    public APIRequestDelete setParams(Map<String, Object> params) {
+    public APIRequestGetPricingVariables setParams(Map<String, Object> params) {
       setParamsInternal(params);
       return this;
     }
 
 
-    public APIRequestDelete requestAllFields () {
+    public APIRequestGetPricingVariables requestAllFields () {
       return this.requestAllFields(true);
     }
 
-    public APIRequestDelete requestAllFields (boolean value) {
+    public APIRequestGetPricingVariables requestAllFields (boolean value) {
       for (String field : FIELDS) {
         this.requestField(field, value);
       }
@@ -373,12 +410,12 @@ public class HotelRoom extends APINode {
     }
 
     @Override
-    public APIRequestDelete requestFields (List<String> fields) {
+    public APIRequestGetPricingVariables requestFields (List<String> fields) {
       return this.requestFields(fields, true);
     }
 
     @Override
-    public APIRequestDelete requestFields (List<String> fields, boolean value) {
+    public APIRequestGetPricingVariables requestFields (List<String> fields, boolean value) {
       for (String field : fields) {
         this.requestField(field, value);
       }
@@ -386,17 +423,45 @@ public class HotelRoom extends APINode {
     }
 
     @Override
-    public APIRequestDelete requestField (String field) {
+    public APIRequestGetPricingVariables requestField (String field) {
       this.requestField(field, true);
       return this;
     }
 
     @Override
-    public APIRequestDelete requestField (String field, boolean value) {
+    public APIRequestGetPricingVariables requestField (String field, boolean value) {
       this.requestFieldInternal(field, value);
       return this;
     }
 
+    public APIRequestGetPricingVariables requestCheckinDateField () {
+      return this.requestCheckinDateField(true);
+    }
+    public APIRequestGetPricingVariables requestCheckinDateField (boolean value) {
+      this.requestField("checkin_date", value);
+      return this;
+    }
+    public APIRequestGetPricingVariables requestPricesField () {
+      return this.requestPricesField(true);
+    }
+    public APIRequestGetPricingVariables requestPricesField (boolean value) {
+      this.requestField("prices", value);
+      return this;
+    }
+    public APIRequestGetPricingVariables requestPricesPrettyField () {
+      return this.requestPricesPrettyField(true);
+    }
+    public APIRequestGetPricingVariables requestPricesPrettyField (boolean value) {
+      this.requestField("prices_pretty", value);
+      return this;
+    }
+    public APIRequestGetPricingVariables requestIdField () {
+      return this.requestIdField(true);
+    }
+    public APIRequestGetPricingVariables requestIdField (boolean value) {
+      this.requestField("id", value);
+      return this;
+    }
   }
 
   public static class APIRequestGet extends APIRequest<HotelRoom> {
@@ -424,8 +489,8 @@ public class HotelRoom extends APINode {
     };
 
     @Override
-    public HotelRoom parseResponse(String response) throws APIException {
-      return HotelRoom.parseResponse(response, getContext(), this).head();
+    public HotelRoom parseResponse(String response, String header) throws APIException {
+      return HotelRoom.parseResponse(response, getContext(), this, header).head();
     }
 
     @Override
@@ -435,9 +500,30 @@ public class HotelRoom extends APINode {
 
     @Override
     public HotelRoom execute(Map<String, Object> extraParams) throws APIException {
-      lastResponse = parseResponse(executeInternal(extraParams));
+      ResponseWrapper rw = executeInternal(extraParams);
+      lastResponse = parseResponse(rw.getBody(), rw.getHeader());
       return lastResponse;
     }
+
+    public ListenableFuture<HotelRoom> executeAsync() throws APIException {
+      return executeAsync(new HashMap<String, Object>());
+    };
+
+    public ListenableFuture<HotelRoom> executeAsync(Map<String, Object> extraParams) throws APIException {
+      return Futures.transform(
+        executeAsyncInternal(extraParams),
+        new Function<ResponseWrapper, HotelRoom>() {
+           public HotelRoom apply(ResponseWrapper result) {
+             try {
+               return APIRequestGet.this.parseResponse(result.getBody(), result.getHeader());
+             } catch (Exception e) {
+               throw new RuntimeException(e);
+             }
+           }
+         },
+         MoreExecutors.directExecutor()
+      );
+    };
 
     public APIRequestGet(String nodeId, APIContext context) {
       super(context, nodeId, "/", "GET", Arrays.asList(PARAMS));
@@ -571,174 +657,6 @@ public class HotelRoom extends APINode {
     }
   }
 
-  public static class APIRequestUpdate extends APIRequest<HotelRoom> {
-
-    HotelRoom lastResponse = null;
-    @Override
-    public HotelRoom getLastResponse() {
-      return lastResponse;
-    }
-    public static final String[] PARAMS = {
-      "applinks",
-      "base_price",
-      "currency",
-      "description",
-      "images",
-      "margin_level",
-      "name",
-      "pricing_variables",
-      "sale_price",
-      "url",
-    };
-
-    public static final String[] FIELDS = {
-    };
-
-    @Override
-    public HotelRoom parseResponse(String response) throws APIException {
-      return HotelRoom.parseResponse(response, getContext(), this).head();
-    }
-
-    @Override
-    public HotelRoom execute() throws APIException {
-      return execute(new HashMap<String, Object>());
-    }
-
-    @Override
-    public HotelRoom execute(Map<String, Object> extraParams) throws APIException {
-      lastResponse = parseResponse(executeInternal(extraParams));
-      return lastResponse;
-    }
-
-    public APIRequestUpdate(String nodeId, APIContext context) {
-      super(context, nodeId, "/", "POST", Arrays.asList(PARAMS));
-    }
-
-    @Override
-    public APIRequestUpdate setParam(String param, Object value) {
-      setParamInternal(param, value);
-      return this;
-    }
-
-    @Override
-    public APIRequestUpdate setParams(Map<String, Object> params) {
-      setParamsInternal(params);
-      return this;
-    }
-
-
-    public APIRequestUpdate setApplinks (Object applinks) {
-      this.setParam("applinks", applinks);
-      return this;
-    }
-    public APIRequestUpdate setApplinks (String applinks) {
-      this.setParam("applinks", applinks);
-      return this;
-    }
-
-    public APIRequestUpdate setBasePrice (Double basePrice) {
-      this.setParam("base_price", basePrice);
-      return this;
-    }
-    public APIRequestUpdate setBasePrice (String basePrice) {
-      this.setParam("base_price", basePrice);
-      return this;
-    }
-
-    public APIRequestUpdate setCurrency (String currency) {
-      this.setParam("currency", currency);
-      return this;
-    }
-
-    public APIRequestUpdate setDescription (String description) {
-      this.setParam("description", description);
-      return this;
-    }
-
-    public APIRequestUpdate setImages (List<Object> images) {
-      this.setParam("images", images);
-      return this;
-    }
-    public APIRequestUpdate setImages (String images) {
-      this.setParam("images", images);
-      return this;
-    }
-
-    public APIRequestUpdate setMarginLevel (Long marginLevel) {
-      this.setParam("margin_level", marginLevel);
-      return this;
-    }
-    public APIRequestUpdate setMarginLevel (String marginLevel) {
-      this.setParam("margin_level", marginLevel);
-      return this;
-    }
-
-    public APIRequestUpdate setName (String name) {
-      this.setParam("name", name);
-      return this;
-    }
-
-    public APIRequestUpdate setPricingVariables (List<Object> pricingVariables) {
-      this.setParam("pricing_variables", pricingVariables);
-      return this;
-    }
-    public APIRequestUpdate setPricingVariables (String pricingVariables) {
-      this.setParam("pricing_variables", pricingVariables);
-      return this;
-    }
-
-    public APIRequestUpdate setSalePrice (Double salePrice) {
-      this.setParam("sale_price", salePrice);
-      return this;
-    }
-    public APIRequestUpdate setSalePrice (String salePrice) {
-      this.setParam("sale_price", salePrice);
-      return this;
-    }
-
-    public APIRequestUpdate setUrl (String url) {
-      this.setParam("url", url);
-      return this;
-    }
-
-    public APIRequestUpdate requestAllFields () {
-      return this.requestAllFields(true);
-    }
-
-    public APIRequestUpdate requestAllFields (boolean value) {
-      for (String field : FIELDS) {
-        this.requestField(field, value);
-      }
-      return this;
-    }
-
-    @Override
-    public APIRequestUpdate requestFields (List<String> fields) {
-      return this.requestFields(fields, true);
-    }
-
-    @Override
-    public APIRequestUpdate requestFields (List<String> fields, boolean value) {
-      for (String field : fields) {
-        this.requestField(field, value);
-      }
-      return this;
-    }
-
-    @Override
-    public APIRequestUpdate requestField (String field) {
-      this.requestField(field, true);
-      return this;
-    }
-
-    @Override
-    public APIRequestUpdate requestField (String field, boolean value) {
-      this.requestFieldInternal(field, value);
-      return this;
-    }
-
-  }
-
 
   synchronized /*package*/ static Gson getGson() {
     if (gson != null) {
@@ -772,8 +690,8 @@ public class HotelRoom extends APINode {
 
   public static APIRequest.ResponseParser<HotelRoom> getParser() {
     return new APIRequest.ResponseParser<HotelRoom>() {
-      public APINodeList<HotelRoom> parseResponse(String response, APIContext context, APIRequest<HotelRoom> request) throws MalformedResponseException {
-        return HotelRoom.parseResponse(response, context, request);
+      public APINodeList<HotelRoom> parseResponse(String response, APIContext context, APIRequest<HotelRoom> request, String header) throws MalformedResponseException {
+        return HotelRoom.parseResponse(response, context, request, header);
       }
     };
   }

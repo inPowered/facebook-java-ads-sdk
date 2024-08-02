@@ -1,24 +1,9 @@
-/**
- * Copyright (c) 2015-present, Facebook, Inc. All rights reserved.
+/*
+ * Copyright (c) Meta Platforms, Inc. and affiliates.
+ * All rights reserved.
  *
- * You are hereby granted a non-exclusive, worldwide, royalty-free license to
- * use, copy, modify, and distribute this software in source code or binary
- * form for use in connection with the web services and APIs provided by
- * Facebook.
- *
- * As with any software that integrates with the Facebook platform, your use
- * of this software is subject to the Facebook Developer Principles and
- * Policies [http://developers.facebook.com/policy/]. This copyright notice
- * shall be included in all copies or substantial portions of the software.
- *
- * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
- * IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
- * FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL
- * THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
- * LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING
- * FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
- * DEALINGS IN THE SOFTWARE.
- *
+ * This source code is licensed under the license found in the
+ * LICENSE file in the root directory of this source tree.
  */
 
 package com.facebook.ads.sdk;
@@ -31,6 +16,11 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
+import com.google.common.base.Function;
+import com.google.common.util.concurrent.Futures;
+import com.google.common.util.concurrent.ListenableFuture;
+import com.google.common.util.concurrent.MoreExecutors;
+import com.google.common.util.concurrent.SettableFuture;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonArray;
 import com.google.gson.annotations.SerializedName;
@@ -54,13 +44,15 @@ public class Transaction extends APINode {
   @SerializedName("account_id")
   private String mAccountId = null;
   @SerializedName("app_amount")
-  private TransactionCurrencyAmount mAppAmount = null;
+  private Object mAppAmount = null;
   @SerializedName("billing_end_time")
   private Long mBillingEndTime = null;
   @SerializedName("billing_reason")
   private String mBillingReason = null;
   @SerializedName("billing_start_time")
   private Long mBillingStartTime = null;
+  @SerializedName("card_charge_mode")
+  private Long mCardChargeMode = null;
   @SerializedName("charge_type")
   private String mChargeType = null;
   @SerializedName("checkout_campaign_group_id")
@@ -73,18 +65,26 @@ public class Transaction extends APINode {
   private String mId = null;
   @SerializedName("is_business_ec_charge")
   private Boolean mIsBusinessEcCharge = null;
+  @SerializedName("is_funding_event")
+  private Boolean mIsFundingEvent = null;
   @SerializedName("payment_option")
   private String mPaymentOption = null;
   @SerializedName("product_type")
   private EnumProductType mProductType = null;
   @SerializedName("provider_amount")
-  private TransactionCurrencyAmount mProviderAmount = null;
+  private Object mProviderAmount = null;
   @SerializedName("status")
   private String mStatus = null;
   @SerializedName("time")
   private Long mTime = null;
   @SerializedName("tracking_id")
   private String mTrackingId = null;
+  @SerializedName("transaction_type")
+  private String mTransactionType = null;
+  @SerializedName("tx_type")
+  private Long mTxType = null;
+  @SerializedName("vat_invoice_id")
+  private String mVatInvoiceId = null;
   protected static Gson gson = null;
 
   public Transaction() {
@@ -93,7 +93,7 @@ public class Transaction extends APINode {
   public String getId() {
     return getFieldId().toString();
   }
-  public static Transaction loadJSON(String json, APIContext context) {
+  public static Transaction loadJSON(String json, APIContext context, String header) {
     Transaction transaction = getGson().fromJson(json, Transaction.class);
     if (context.isDebug()) {
       JsonParser parser = new JsonParser();
@@ -106,15 +106,16 @@ public class Transaction extends APINode {
         context.log("[Warning] When parsing response, object is not consistent with JSON:");
         context.log("[JSON]" + o1);
         context.log("[Object]" + o2);
-      };
+      }
     }
     transaction.context = context;
     transaction.rawValue = json;
+    transaction.header = header;
     return transaction;
   }
 
-  public static APINodeList<Transaction> parseResponse(String json, APIContext context, APIRequest request) throws MalformedResponseException {
-    APINodeList<Transaction> transactions = new APINodeList<Transaction>(request, json);
+  public static APINodeList<Transaction> parseResponse(String json, APIContext context, APIRequest request, String header) throws MalformedResponseException {
+    APINodeList<Transaction> transactions = new APINodeList<Transaction>(request, json, header);
     JsonArray arr;
     JsonObject obj;
     JsonParser parser = new JsonParser();
@@ -125,23 +126,32 @@ public class Transaction extends APINode {
         // First, check if it's a pure JSON Array
         arr = result.getAsJsonArray();
         for (int i = 0; i < arr.size(); i++) {
-          transactions.add(loadJSON(arr.get(i).getAsJsonObject().toString(), context));
+          transactions.add(loadJSON(arr.get(i).getAsJsonObject().toString(), context, header));
         };
         return transactions;
       } else if (result.isJsonObject()) {
         obj = result.getAsJsonObject();
         if (obj.has("data")) {
           if (obj.has("paging")) {
-            JsonObject paging = obj.get("paging").getAsJsonObject().get("cursors").getAsJsonObject();
-            String before = paging.has("before") ? paging.get("before").getAsString() : null;
-            String after = paging.has("after") ? paging.get("after").getAsString() : null;
-            transactions.setPaging(before, after);
+            JsonObject paging = obj.get("paging").getAsJsonObject();
+            if (paging.has("cursors")) {
+                JsonObject cursors = paging.get("cursors").getAsJsonObject();
+                String before = cursors.has("before") ? cursors.get("before").getAsString() : null;
+                String after = cursors.has("after") ? cursors.get("after").getAsString() : null;
+                transactions.setCursors(before, after);
+            }
+            String previous = paging.has("previous") ? paging.get("previous").getAsString() : null;
+            String next = paging.has("next") ? paging.get("next").getAsString() : null;
+            transactions.setPaging(previous, next);
+            if (context.hasAppSecret()) {
+              transactions.setAppSecret(context.getAppSecretProof());
+            }
           }
           if (obj.get("data").isJsonArray()) {
             // Second, check if it's a JSON array with "data"
             arr = obj.get("data").getAsJsonArray();
             for (int i = 0; i < arr.size(); i++) {
-              transactions.add(loadJSON(arr.get(i).getAsJsonObject().toString(), context));
+              transactions.add(loadJSON(arr.get(i).getAsJsonObject().toString(), context, header));
             };
           } else if (obj.get("data").isJsonObject()) {
             // Third, check if it's a JSON object with "data"
@@ -152,13 +162,13 @@ public class Transaction extends APINode {
                 isRedownload = true;
                 obj = obj.getAsJsonObject(s);
                 for (Map.Entry<String, JsonElement> entry : obj.entrySet()) {
-                  transactions.add(loadJSON(entry.getValue().toString(), context));
+                  transactions.add(loadJSON(entry.getValue().toString(), context, header));
                 }
                 break;
               }
             }
             if (!isRedownload) {
-              transactions.add(loadJSON(obj.toString(), context));
+              transactions.add(loadJSON(obj.toString(), context, header));
             }
           }
           return transactions;
@@ -166,7 +176,7 @@ public class Transaction extends APINode {
           // Fourth, check if it's a map of image objects
           obj = obj.get("images").getAsJsonObject();
           for (Map.Entry<String, JsonElement> entry : obj.entrySet()) {
-              transactions.add(loadJSON(entry.getValue().toString(), context));
+              transactions.add(loadJSON(entry.getValue().toString(), context, header));
           }
           return transactions;
         } else {
@@ -185,7 +195,7 @@ public class Transaction extends APINode {
               value.getAsJsonObject().get("id") != null &&
               value.getAsJsonObject().get("id").getAsString().equals(key)
             ) {
-              transactions.add(loadJSON(value.toString(), context));
+              transactions.add(loadJSON(value.toString(), context, header));
             } else {
               isIdIndexedArray = false;
               break;
@@ -197,7 +207,7 @@ public class Transaction extends APINode {
 
           // Sixth, check if it's pure JsonObject
           transactions.clear();
-          transactions.add(loadJSON(json, context));
+          transactions.add(loadJSON(json, context, header));
           return transactions;
         }
       }
@@ -235,20 +245,15 @@ public class Transaction extends APINode {
     return this;
   }
 
-  public TransactionCurrencyAmount getFieldAppAmount() {
+  public Object getFieldAppAmount() {
     return mAppAmount;
   }
 
-  public Transaction setFieldAppAmount(TransactionCurrencyAmount value) {
+  public Transaction setFieldAppAmount(Object value) {
     this.mAppAmount = value;
     return this;
   }
 
-  public Transaction setFieldAppAmount(String value) {
-    Type type = new TypeToken<TransactionCurrencyAmount>(){}.getType();
-    this.mAppAmount = TransactionCurrencyAmount.getGson().fromJson(value, type);
-    return this;
-  }
   public Long getFieldBillingEndTime() {
     return mBillingEndTime;
   }
@@ -273,6 +278,15 @@ public class Transaction extends APINode {
 
   public Transaction setFieldBillingStartTime(Long value) {
     this.mBillingStartTime = value;
+    return this;
+  }
+
+  public Long getFieldCardChargeMode() {
+    return mCardChargeMode;
+  }
+
+  public Transaction setFieldCardChargeMode(Long value) {
+    this.mCardChargeMode = value;
     return this;
   }
 
@@ -330,6 +344,15 @@ public class Transaction extends APINode {
     return this;
   }
 
+  public Boolean getFieldIsFundingEvent() {
+    return mIsFundingEvent;
+  }
+
+  public Transaction setFieldIsFundingEvent(Boolean value) {
+    this.mIsFundingEvent = value;
+    return this;
+  }
+
   public String getFieldPaymentOption() {
     return mPaymentOption;
   }
@@ -348,20 +371,15 @@ public class Transaction extends APINode {
     return this;
   }
 
-  public TransactionCurrencyAmount getFieldProviderAmount() {
+  public Object getFieldProviderAmount() {
     return mProviderAmount;
   }
 
-  public Transaction setFieldProviderAmount(TransactionCurrencyAmount value) {
+  public Transaction setFieldProviderAmount(Object value) {
     this.mProviderAmount = value;
     return this;
   }
 
-  public Transaction setFieldProviderAmount(String value) {
-    Type type = new TypeToken<TransactionCurrencyAmount>(){}.getType();
-    this.mProviderAmount = TransactionCurrencyAmount.getGson().fromJson(value, type);
-    return this;
-  }
   public String getFieldStatus() {
     return mStatus;
   }
@@ -389,14 +407,47 @@ public class Transaction extends APINode {
     return this;
   }
 
+  public String getFieldTransactionType() {
+    return mTransactionType;
+  }
+
+  public Transaction setFieldTransactionType(String value) {
+    this.mTransactionType = value;
+    return this;
+  }
+
+  public Long getFieldTxType() {
+    return mTxType;
+  }
+
+  public Transaction setFieldTxType(Long value) {
+    this.mTxType = value;
+    return this;
+  }
+
+  public String getFieldVatInvoiceId() {
+    return mVatInvoiceId;
+  }
+
+  public Transaction setFieldVatInvoiceId(String value) {
+    this.mVatInvoiceId = value;
+    return this;
+  }
+
 
 
   public static enum EnumProductType {
+      @SerializedName("cp_return_label")
+      VALUE_CP_RETURN_LABEL("cp_return_label"),
       @SerializedName("facebook_ad")
       VALUE_FACEBOOK_AD("facebook_ad"),
       @SerializedName("ig_ad")
       VALUE_IG_AD("ig_ad"),
-      NULL(null);
+      @SerializedName("whatsapp")
+      VALUE_WHATSAPP("whatsapp"),
+      @SerializedName("workplace")
+      VALUE_WORKPLACE("workplace"),
+      ;
 
       private String value;
 
@@ -430,18 +481,23 @@ public class Transaction extends APINode {
     this.mBillingEndTime = instance.mBillingEndTime;
     this.mBillingReason = instance.mBillingReason;
     this.mBillingStartTime = instance.mBillingStartTime;
+    this.mCardChargeMode = instance.mCardChargeMode;
     this.mChargeType = instance.mChargeType;
     this.mCheckoutCampaignGroupId = instance.mCheckoutCampaignGroupId;
     this.mCredentialId = instance.mCredentialId;
     this.mFaturaId = instance.mFaturaId;
     this.mId = instance.mId;
     this.mIsBusinessEcCharge = instance.mIsBusinessEcCharge;
+    this.mIsFundingEvent = instance.mIsFundingEvent;
     this.mPaymentOption = instance.mPaymentOption;
     this.mProductType = instance.mProductType;
     this.mProviderAmount = instance.mProviderAmount;
     this.mStatus = instance.mStatus;
     this.mTime = instance.mTime;
     this.mTrackingId = instance.mTrackingId;
+    this.mTransactionType = instance.mTransactionType;
+    this.mTxType = instance.mTxType;
+    this.mVatInvoiceId = instance.mVatInvoiceId;
     this.context = instance.context;
     this.rawValue = instance.rawValue;
     return this;
@@ -449,8 +505,8 @@ public class Transaction extends APINode {
 
   public static APIRequest.ResponseParser<Transaction> getParser() {
     return new APIRequest.ResponseParser<Transaction>() {
-      public APINodeList<Transaction> parseResponse(String response, APIContext context, APIRequest<Transaction> request) throws MalformedResponseException {
-        return Transaction.parseResponse(response, context, request);
+      public APINodeList<Transaction> parseResponse(String response, APIContext context, APIRequest<Transaction> request, String header) throws MalformedResponseException {
+        return Transaction.parseResponse(response, context, request, header);
       }
     };
   }

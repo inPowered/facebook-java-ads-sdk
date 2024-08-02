@@ -1,24 +1,9 @@
-/**
- * Copyright (c) 2015-present, Facebook, Inc. All rights reserved.
+/*
+ * Copyright (c) Meta Platforms, Inc. and affiliates.
+ * All rights reserved.
  *
- * You are hereby granted a non-exclusive, worldwide, royalty-free license to
- * use, copy, modify, and distribute this software in source code or binary
- * form for use in connection with the web services and APIs provided by
- * Facebook.
- *
- * As with any software that integrates with the Facebook platform, your use
- * of this software is subject to the Facebook Developer Principles and
- * Policies [http://developers.facebook.com/policy/]. This copyright notice
- * shall be included in all copies or substantial portions of the software.
- *
- * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
- * IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
- * FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL
- * THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
- * LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING
- * FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
- * DEALINGS IN THE SOFTWARE.
- *
+ * This source code is licensed under the license found in the
+ * LICENSE file in the root directory of this source tree.
  */
 
 package com.facebook.ads.sdk;
@@ -31,6 +16,11 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
+import com.google.common.base.Function;
+import com.google.common.util.concurrent.Futures;
+import com.google.common.util.concurrent.ListenableFuture;
+import com.google.common.util.concurrent.MoreExecutors;
+import com.google.common.util.concurrent.SettableFuture;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonArray;
 import com.google.gson.annotations.SerializedName;
@@ -82,6 +72,7 @@ public class AdRule extends APINode {
 
   public AdRule(String id, APIContext context) {
     this.mId = id;
+
     this.context = context;
   }
 
@@ -95,12 +86,22 @@ public class AdRule extends APINode {
     return fetchById(id.toString(), context);
   }
 
+  public static ListenableFuture<AdRule> fetchByIdAsync(Long id, APIContext context) throws APIException {
+    return fetchByIdAsync(id.toString(), context);
+  }
+
   public static AdRule fetchById(String id, APIContext context) throws APIException {
-    AdRule adRule =
+    return
       new APIRequestGet(id, context)
       .requestAllFields()
       .execute();
-    return adRule;
+  }
+
+  public static ListenableFuture<AdRule> fetchByIdAsync(String id, APIContext context) throws APIException {
+    return
+      new APIRequestGet(id, context)
+      .requestAllFields()
+      .executeAsync();
   }
 
   public static APINodeList<AdRule> fetchByIds(List<String> ids, List<String> fields, APIContext context) throws APIException {
@@ -112,6 +113,14 @@ public class AdRule extends APINode {
     );
   }
 
+  public static ListenableFuture<APINodeList<AdRule>> fetchByIdsAsync(List<String> ids, List<String> fields, APIContext context) throws APIException {
+    return
+      new APIRequest(context, "", "/", "GET", AdRule.getParser())
+        .setParam("ids", APIRequest.joinStringList(ids))
+        .requestFields(fields)
+        .executeAsyncBase();
+  }
+
   private String getPrefixedId() {
     return getId();
   }
@@ -119,7 +128,7 @@ public class AdRule extends APINode {
   public String getId() {
     return getFieldId().toString();
   }
-  public static AdRule loadJSON(String json, APIContext context) {
+  public static AdRule loadJSON(String json, APIContext context, String header) {
     AdRule adRule = getGson().fromJson(json, AdRule.class);
     if (context.isDebug()) {
       JsonParser parser = new JsonParser();
@@ -132,15 +141,16 @@ public class AdRule extends APINode {
         context.log("[Warning] When parsing response, object is not consistent with JSON:");
         context.log("[JSON]" + o1);
         context.log("[Object]" + o2);
-      };
+      }
     }
     adRule.context = context;
     adRule.rawValue = json;
+    adRule.header = header;
     return adRule;
   }
 
-  public static APINodeList<AdRule> parseResponse(String json, APIContext context, APIRequest request) throws MalformedResponseException {
-    APINodeList<AdRule> adRules = new APINodeList<AdRule>(request, json);
+  public static APINodeList<AdRule> parseResponse(String json, APIContext context, APIRequest request, String header) throws MalformedResponseException {
+    APINodeList<AdRule> adRules = new APINodeList<AdRule>(request, json, header);
     JsonArray arr;
     JsonObject obj;
     JsonParser parser = new JsonParser();
@@ -151,23 +161,32 @@ public class AdRule extends APINode {
         // First, check if it's a pure JSON Array
         arr = result.getAsJsonArray();
         for (int i = 0; i < arr.size(); i++) {
-          adRules.add(loadJSON(arr.get(i).getAsJsonObject().toString(), context));
+          adRules.add(loadJSON(arr.get(i).getAsJsonObject().toString(), context, header));
         };
         return adRules;
       } else if (result.isJsonObject()) {
         obj = result.getAsJsonObject();
         if (obj.has("data")) {
           if (obj.has("paging")) {
-            JsonObject paging = obj.get("paging").getAsJsonObject().get("cursors").getAsJsonObject();
-            String before = paging.has("before") ? paging.get("before").getAsString() : null;
-            String after = paging.has("after") ? paging.get("after").getAsString() : null;
-            adRules.setPaging(before, after);
+            JsonObject paging = obj.get("paging").getAsJsonObject();
+            if (paging.has("cursors")) {
+                JsonObject cursors = paging.get("cursors").getAsJsonObject();
+                String before = cursors.has("before") ? cursors.get("before").getAsString() : null;
+                String after = cursors.has("after") ? cursors.get("after").getAsString() : null;
+                adRules.setCursors(before, after);
+            }
+            String previous = paging.has("previous") ? paging.get("previous").getAsString() : null;
+            String next = paging.has("next") ? paging.get("next").getAsString() : null;
+            adRules.setPaging(previous, next);
+            if (context.hasAppSecret()) {
+              adRules.setAppSecret(context.getAppSecretProof());
+            }
           }
           if (obj.get("data").isJsonArray()) {
             // Second, check if it's a JSON array with "data"
             arr = obj.get("data").getAsJsonArray();
             for (int i = 0; i < arr.size(); i++) {
-              adRules.add(loadJSON(arr.get(i).getAsJsonObject().toString(), context));
+              adRules.add(loadJSON(arr.get(i).getAsJsonObject().toString(), context, header));
             };
           } else if (obj.get("data").isJsonObject()) {
             // Third, check if it's a JSON object with "data"
@@ -178,13 +197,13 @@ public class AdRule extends APINode {
                 isRedownload = true;
                 obj = obj.getAsJsonObject(s);
                 for (Map.Entry<String, JsonElement> entry : obj.entrySet()) {
-                  adRules.add(loadJSON(entry.getValue().toString(), context));
+                  adRules.add(loadJSON(entry.getValue().toString(), context, header));
                 }
                 break;
               }
             }
             if (!isRedownload) {
-              adRules.add(loadJSON(obj.toString(), context));
+              adRules.add(loadJSON(obj.toString(), context, header));
             }
           }
           return adRules;
@@ -192,7 +211,7 @@ public class AdRule extends APINode {
           // Fourth, check if it's a map of image objects
           obj = obj.get("images").getAsJsonObject();
           for (Map.Entry<String, JsonElement> entry : obj.entrySet()) {
-              adRules.add(loadJSON(entry.getValue().toString(), context));
+              adRules.add(loadJSON(entry.getValue().toString(), context, header));
           }
           return adRules;
         } else {
@@ -211,7 +230,7 @@ public class AdRule extends APINode {
               value.getAsJsonObject().get("id") != null &&
               value.getAsJsonObject().get("id").getAsString().equals(key)
             ) {
-              adRules.add(loadJSON(value.toString(), context));
+              adRules.add(loadJSON(value.toString(), context, header));
             } else {
               isIdIndexedArray = false;
               break;
@@ -223,7 +242,7 @@ public class AdRule extends APINode {
 
           // Sixth, check if it's pure JsonObject
           adRules.clear();
-          adRules.add(loadJSON(json, context));
+          adRules.add(loadJSON(json, context, header));
           return adRules;
         }
       }
@@ -251,8 +270,16 @@ public class AdRule extends APINode {
     return getGson().toJson(this);
   }
 
+  public APIRequestCreateExecute createExecute() {
+    return new APIRequestCreateExecute(this.getPrefixedId().toString(), context);
+  }
+
   public APIRequestGetHistory getHistory() {
     return new APIRequestGetHistory(this.getPrefixedId().toString(), context);
+  }
+
+  public APIRequestCreatePreview createPreview() {
+    return new APIRequestCreatePreview(this.getPrefixedId().toString(), context);
   }
 
   public APIRequestDelete delete() {
@@ -284,10 +311,16 @@ public class AdRule extends APINode {
   }
 
   public AdRuleEvaluationSpec getFieldEvaluationSpec() {
+    if (mEvaluationSpec != null) {
+      mEvaluationSpec.context = getContext();
+    }
     return mEvaluationSpec;
   }
 
   public AdRuleExecutionSpec getFieldExecutionSpec() {
+    if (mExecutionSpec != null) {
+      mExecutionSpec.context = getContext();
+    }
     return mExecutionSpec;
   }
 
@@ -312,6 +345,111 @@ public class AdRule extends APINode {
   }
 
 
+
+  public static class APIRequestCreateExecute extends APIRequest<APINode> {
+
+    APINode lastResponse = null;
+    @Override
+    public APINode getLastResponse() {
+      return lastResponse;
+    }
+    public static final String[] PARAMS = {
+    };
+
+    public static final String[] FIELDS = {
+    };
+
+    @Override
+    public APINode parseResponse(String response, String header) throws APIException {
+      return APINode.parseResponse(response, getContext(), this, header).head();
+    }
+
+    @Override
+    public APINode execute() throws APIException {
+      return execute(new HashMap<String, Object>());
+    }
+
+    @Override
+    public APINode execute(Map<String, Object> extraParams) throws APIException {
+      ResponseWrapper rw = executeInternal(extraParams);
+      lastResponse = parseResponse(rw.getBody(), rw.getHeader());
+      return lastResponse;
+    }
+
+    public ListenableFuture<APINode> executeAsync() throws APIException {
+      return executeAsync(new HashMap<String, Object>());
+    };
+
+    public ListenableFuture<APINode> executeAsync(Map<String, Object> extraParams) throws APIException {
+      return Futures.transform(
+        executeAsyncInternal(extraParams),
+        new Function<ResponseWrapper, APINode>() {
+           public APINode apply(ResponseWrapper result) {
+             try {
+               return APIRequestCreateExecute.this.parseResponse(result.getBody(), result.getHeader());
+             } catch (Exception e) {
+               throw new RuntimeException(e);
+             }
+           }
+         },
+         MoreExecutors.directExecutor()
+      );
+    };
+
+    public APIRequestCreateExecute(String nodeId, APIContext context) {
+      super(context, nodeId, "/execute", "POST", Arrays.asList(PARAMS));
+    }
+
+    @Override
+    public APIRequestCreateExecute setParam(String param, Object value) {
+      setParamInternal(param, value);
+      return this;
+    }
+
+    @Override
+    public APIRequestCreateExecute setParams(Map<String, Object> params) {
+      setParamsInternal(params);
+      return this;
+    }
+
+
+    public APIRequestCreateExecute requestAllFields () {
+      return this.requestAllFields(true);
+    }
+
+    public APIRequestCreateExecute requestAllFields (boolean value) {
+      for (String field : FIELDS) {
+        this.requestField(field, value);
+      }
+      return this;
+    }
+
+    @Override
+    public APIRequestCreateExecute requestFields (List<String> fields) {
+      return this.requestFields(fields, true);
+    }
+
+    @Override
+    public APIRequestCreateExecute requestFields (List<String> fields, boolean value) {
+      for (String field : fields) {
+        this.requestField(field, value);
+      }
+      return this;
+    }
+
+    @Override
+    public APIRequestCreateExecute requestField (String field) {
+      this.requestField(field, true);
+      return this;
+    }
+
+    @Override
+    public APIRequestCreateExecute requestField (String field, boolean value) {
+      this.requestFieldInternal(field, value);
+      return this;
+    }
+
+  }
 
   public static class APIRequestGetHistory extends APIRequest<AdRuleHistory> {
 
@@ -338,8 +476,8 @@ public class AdRule extends APINode {
     };
 
     @Override
-    public APINodeList<AdRuleHistory> parseResponse(String response) throws APIException {
-      return AdRuleHistory.parseResponse(response, getContext(), this);
+    public APINodeList<AdRuleHistory> parseResponse(String response, String header) throws APIException {
+      return AdRuleHistory.parseResponse(response, getContext(), this, header);
     }
 
     @Override
@@ -349,9 +487,30 @@ public class AdRule extends APINode {
 
     @Override
     public APINodeList<AdRuleHistory> execute(Map<String, Object> extraParams) throws APIException {
-      lastResponse = parseResponse(executeInternal(extraParams));
+      ResponseWrapper rw = executeInternal(extraParams);
+      lastResponse = parseResponse(rw.getBody(),rw.getHeader());
       return lastResponse;
     }
+
+    public ListenableFuture<APINodeList<AdRuleHistory>> executeAsync() throws APIException {
+      return executeAsync(new HashMap<String, Object>());
+    };
+
+    public ListenableFuture<APINodeList<AdRuleHistory>> executeAsync(Map<String, Object> extraParams) throws APIException {
+      return Futures.transform(
+        executeAsyncInternal(extraParams),
+        new Function<ResponseWrapper, APINodeList<AdRuleHistory>>() {
+           public APINodeList<AdRuleHistory> apply(ResponseWrapper result) {
+             try {
+               return APIRequestGetHistory.this.parseResponse(result.getBody(), result.getHeader());
+             } catch (Exception e) {
+               throw new RuntimeException(e);
+             }
+           }
+         },
+         MoreExecutors.directExecutor()
+      );
+    };
 
     public APIRequestGetHistory(String nodeId, APIContext context) {
       super(context, nodeId, "/history", "GET", Arrays.asList(PARAMS));
@@ -487,6 +646,111 @@ public class AdRule extends APINode {
     }
   }
 
+  public static class APIRequestCreatePreview extends APIRequest<AdRule> {
+
+    AdRule lastResponse = null;
+    @Override
+    public AdRule getLastResponse() {
+      return lastResponse;
+    }
+    public static final String[] PARAMS = {
+    };
+
+    public static final String[] FIELDS = {
+    };
+
+    @Override
+    public AdRule parseResponse(String response, String header) throws APIException {
+      return AdRule.parseResponse(response, getContext(), this, header).head();
+    }
+
+    @Override
+    public AdRule execute() throws APIException {
+      return execute(new HashMap<String, Object>());
+    }
+
+    @Override
+    public AdRule execute(Map<String, Object> extraParams) throws APIException {
+      ResponseWrapper rw = executeInternal(extraParams);
+      lastResponse = parseResponse(rw.getBody(), rw.getHeader());
+      return lastResponse;
+    }
+
+    public ListenableFuture<AdRule> executeAsync() throws APIException {
+      return executeAsync(new HashMap<String, Object>());
+    };
+
+    public ListenableFuture<AdRule> executeAsync(Map<String, Object> extraParams) throws APIException {
+      return Futures.transform(
+        executeAsyncInternal(extraParams),
+        new Function<ResponseWrapper, AdRule>() {
+           public AdRule apply(ResponseWrapper result) {
+             try {
+               return APIRequestCreatePreview.this.parseResponse(result.getBody(), result.getHeader());
+             } catch (Exception e) {
+               throw new RuntimeException(e);
+             }
+           }
+         },
+         MoreExecutors.directExecutor()
+      );
+    };
+
+    public APIRequestCreatePreview(String nodeId, APIContext context) {
+      super(context, nodeId, "/preview", "POST", Arrays.asList(PARAMS));
+    }
+
+    @Override
+    public APIRequestCreatePreview setParam(String param, Object value) {
+      setParamInternal(param, value);
+      return this;
+    }
+
+    @Override
+    public APIRequestCreatePreview setParams(Map<String, Object> params) {
+      setParamsInternal(params);
+      return this;
+    }
+
+
+    public APIRequestCreatePreview requestAllFields () {
+      return this.requestAllFields(true);
+    }
+
+    public APIRequestCreatePreview requestAllFields (boolean value) {
+      for (String field : FIELDS) {
+        this.requestField(field, value);
+      }
+      return this;
+    }
+
+    @Override
+    public APIRequestCreatePreview requestFields (List<String> fields) {
+      return this.requestFields(fields, true);
+    }
+
+    @Override
+    public APIRequestCreatePreview requestFields (List<String> fields, boolean value) {
+      for (String field : fields) {
+        this.requestField(field, value);
+      }
+      return this;
+    }
+
+    @Override
+    public APIRequestCreatePreview requestField (String field) {
+      this.requestField(field, true);
+      return this;
+    }
+
+    @Override
+    public APIRequestCreatePreview requestField (String field, boolean value) {
+      this.requestFieldInternal(field, value);
+      return this;
+    }
+
+  }
+
   public static class APIRequestDelete extends APIRequest<APINode> {
 
     APINode lastResponse = null;
@@ -501,8 +765,8 @@ public class AdRule extends APINode {
     };
 
     @Override
-    public APINode parseResponse(String response) throws APIException {
-      return APINode.parseResponse(response, getContext(), this).head();
+    public APINode parseResponse(String response, String header) throws APIException {
+      return APINode.parseResponse(response, getContext(), this, header).head();
     }
 
     @Override
@@ -512,9 +776,30 @@ public class AdRule extends APINode {
 
     @Override
     public APINode execute(Map<String, Object> extraParams) throws APIException {
-      lastResponse = parseResponse(executeInternal(extraParams));
+      ResponseWrapper rw = executeInternal(extraParams);
+      lastResponse = parseResponse(rw.getBody(), rw.getHeader());
       return lastResponse;
     }
+
+    public ListenableFuture<APINode> executeAsync() throws APIException {
+      return executeAsync(new HashMap<String, Object>());
+    };
+
+    public ListenableFuture<APINode> executeAsync(Map<String, Object> extraParams) throws APIException {
+      return Futures.transform(
+        executeAsyncInternal(extraParams),
+        new Function<ResponseWrapper, APINode>() {
+           public APINode apply(ResponseWrapper result) {
+             try {
+               return APIRequestDelete.this.parseResponse(result.getBody(), result.getHeader());
+             } catch (Exception e) {
+               throw new RuntimeException(e);
+             }
+           }
+         },
+         MoreExecutors.directExecutor()
+      );
+    };
 
     public APIRequestDelete(String nodeId, APIContext context) {
       super(context, nodeId, "/", "DELETE", Arrays.asList(PARAMS));
@@ -595,8 +880,8 @@ public class AdRule extends APINode {
     };
 
     @Override
-    public AdRule parseResponse(String response) throws APIException {
-      return AdRule.parseResponse(response, getContext(), this).head();
+    public AdRule parseResponse(String response, String header) throws APIException {
+      return AdRule.parseResponse(response, getContext(), this, header).head();
     }
 
     @Override
@@ -606,9 +891,30 @@ public class AdRule extends APINode {
 
     @Override
     public AdRule execute(Map<String, Object> extraParams) throws APIException {
-      lastResponse = parseResponse(executeInternal(extraParams));
+      ResponseWrapper rw = executeInternal(extraParams);
+      lastResponse = parseResponse(rw.getBody(), rw.getHeader());
       return lastResponse;
     }
+
+    public ListenableFuture<AdRule> executeAsync() throws APIException {
+      return executeAsync(new HashMap<String, Object>());
+    };
+
+    public ListenableFuture<AdRule> executeAsync(Map<String, Object> extraParams) throws APIException {
+      return Futures.transform(
+        executeAsyncInternal(extraParams),
+        new Function<ResponseWrapper, AdRule>() {
+           public AdRule apply(ResponseWrapper result) {
+             try {
+               return APIRequestGet.this.parseResponse(result.getBody(), result.getHeader());
+             } catch (Exception e) {
+               throw new RuntimeException(e);
+             }
+           }
+         },
+         MoreExecutors.directExecutor()
+      );
+    };
 
     public APIRequestGet(String nodeId, APIContext context) {
       super(context, nodeId, "/", "GET", Arrays.asList(PARAMS));
@@ -746,7 +1052,6 @@ public class AdRule extends APINode {
       "evaluation_spec",
       "execution_spec",
       "name",
-      "reset_period",
       "schedule_spec",
       "status",
     };
@@ -755,8 +1060,8 @@ public class AdRule extends APINode {
     };
 
     @Override
-    public AdRule parseResponse(String response) throws APIException {
-      return AdRule.parseResponse(response, getContext(), this).head();
+    public AdRule parseResponse(String response, String header) throws APIException {
+      return AdRule.parseResponse(response, getContext(), this, header).head();
     }
 
     @Override
@@ -766,9 +1071,30 @@ public class AdRule extends APINode {
 
     @Override
     public AdRule execute(Map<String, Object> extraParams) throws APIException {
-      lastResponse = parseResponse(executeInternal(extraParams));
+      ResponseWrapper rw = executeInternal(extraParams);
+      lastResponse = parseResponse(rw.getBody(), rw.getHeader());
       return lastResponse;
     }
+
+    public ListenableFuture<AdRule> executeAsync() throws APIException {
+      return executeAsync(new HashMap<String, Object>());
+    };
+
+    public ListenableFuture<AdRule> executeAsync(Map<String, Object> extraParams) throws APIException {
+      return Futures.transform(
+        executeAsyncInternal(extraParams),
+        new Function<ResponseWrapper, AdRule>() {
+           public AdRule apply(ResponseWrapper result) {
+             try {
+               return APIRequestUpdate.this.parseResponse(result.getBody(), result.getHeader());
+             } catch (Exception e) {
+               throw new RuntimeException(e);
+             }
+           }
+         },
+         MoreExecutors.directExecutor()
+      );
+    };
 
     public APIRequestUpdate(String nodeId, APIContext context) {
       super(context, nodeId, "/", "POST", Arrays.asList(PARAMS));
@@ -807,15 +1133,6 @@ public class AdRule extends APINode {
 
     public APIRequestUpdate setName (String name) {
       this.setParam("name", name);
-      return this;
-    }
-
-    public APIRequestUpdate setResetPeriod (Long resetPeriod) {
-      this.setParam("reset_period", resetPeriod);
-      return this;
-    }
-    public APIRequestUpdate setResetPeriod (String resetPeriod) {
-      this.setParam("reset_period", resetPeriod);
       return this;
     }
 
@@ -876,17 +1193,92 @@ public class AdRule extends APINode {
   }
 
   public static enum EnumStatus {
-      @SerializedName("ENABLED")
-      VALUE_ENABLED("ENABLED"),
-      @SerializedName("DISABLED")
-      VALUE_DISABLED("DISABLED"),
       @SerializedName("DELETED")
       VALUE_DELETED("DELETED"),
-      NULL(null);
+      @SerializedName("DISABLED")
+      VALUE_DISABLED("DISABLED"),
+      @SerializedName("ENABLED")
+      VALUE_ENABLED("ENABLED"),
+      @SerializedName("HAS_ISSUES")
+      VALUE_HAS_ISSUES("HAS_ISSUES"),
+      ;
 
       private String value;
 
       private EnumStatus(String value) {
+        this.value = value;
+      }
+
+      @Override
+      public String toString() {
+        return value;
+      }
+  }
+
+  public static enum EnumUiCreationSource {
+      @SerializedName("AM_ACCOUNT_OVERVIEW_RECOMMENDATIONS")
+      VALUE_AM_ACCOUNT_OVERVIEW_RECOMMENDATIONS("AM_ACCOUNT_OVERVIEW_RECOMMENDATIONS"),
+      @SerializedName("AM_ACTIVITY_HISTORY_TABLE")
+      VALUE_AM_ACTIVITY_HISTORY_TABLE("AM_ACTIVITY_HISTORY_TABLE"),
+      @SerializedName("AM_AD_OBJECT_NAME_CARD")
+      VALUE_AM_AD_OBJECT_NAME_CARD("AM_AD_OBJECT_NAME_CARD"),
+      @SerializedName("AM_AMFE_L3_RECOMMENDATION")
+      VALUE_AM_AMFE_L3_RECOMMENDATION("AM_AMFE_L3_RECOMMENDATION"),
+      @SerializedName("AM_AUTOFLOW_GUIDANCE_CARD")
+      VALUE_AM_AUTOFLOW_GUIDANCE_CARD("AM_AUTOFLOW_GUIDANCE_CARD"),
+      @SerializedName("AM_AUTO_APPLY_WIDGET")
+      VALUE_AM_AUTO_APPLY_WIDGET("AM_AUTO_APPLY_WIDGET"),
+      @SerializedName("AM_EDITOR_CARD")
+      VALUE_AM_EDITOR_CARD("AM_EDITOR_CARD"),
+      @SerializedName("AM_INFO_CARD")
+      VALUE_AM_INFO_CARD("AM_INFO_CARD"),
+      @SerializedName("AM_NAME_CELL_DROPDOWN")
+      VALUE_AM_NAME_CELL_DROPDOWN("AM_NAME_CELL_DROPDOWN"),
+      @SerializedName("AM_OPTIMIZATION_TIP_GUIDANCE_CARD")
+      VALUE_AM_OPTIMIZATION_TIP_GUIDANCE_CARD("AM_OPTIMIZATION_TIP_GUIDANCE_CARD"),
+      @SerializedName("AM_PERFORMANCE_SUMMARY")
+      VALUE_AM_PERFORMANCE_SUMMARY("AM_PERFORMANCE_SUMMARY"),
+      @SerializedName("AM_RULE_LANDING_PAGE_BANNER")
+      VALUE_AM_RULE_LANDING_PAGE_BANNER("AM_RULE_LANDING_PAGE_BANNER"),
+      @SerializedName("AM_SYD_RESOLUTION_FLOW")
+      VALUE_AM_SYD_RESOLUTION_FLOW("AM_SYD_RESOLUTION_FLOW"),
+      @SerializedName("AM_SYD_RESOLUTION_FLOW_MODAL")
+      VALUE_AM_SYD_RESOLUTION_FLOW_MODAL("AM_SYD_RESOLUTION_FLOW_MODAL"),
+      @SerializedName("AM_TABLE_DELIVERY_COLUMN_POPOVER")
+      VALUE_AM_TABLE_DELIVERY_COLUMN_POPOVER("AM_TABLE_DELIVERY_COLUMN_POPOVER"),
+      @SerializedName("AM_TABLE_TOGGLE_POPOVER")
+      VALUE_AM_TABLE_TOGGLE_POPOVER("AM_TABLE_TOGGLE_POPOVER"),
+      @SerializedName("AM_TOOLBAR_CREATE_RULE_DROPDOWN")
+      VALUE_AM_TOOLBAR_CREATE_RULE_DROPDOWN("AM_TOOLBAR_CREATE_RULE_DROPDOWN"),
+      @SerializedName("PE_CAMPAIGN_STRUCTURE_MENU")
+      VALUE_PE_CAMPAIGN_STRUCTURE_MENU("PE_CAMPAIGN_STRUCTURE_MENU"),
+      @SerializedName("PE_EDITOR_CARD")
+      VALUE_PE_EDITOR_CARD("PE_EDITOR_CARD"),
+      @SerializedName("PE_INFO_CARD")
+      VALUE_PE_INFO_CARD("PE_INFO_CARD"),
+      @SerializedName("PE_TOOLBAR_CREATE_RULE_DROPDOWN")
+      VALUE_PE_TOOLBAR_CREATE_RULE_DROPDOWN("PE_TOOLBAR_CREATE_RULE_DROPDOWN"),
+      @SerializedName("RULES_MANAGEMENT_PAGE_ACTION_DROPDOWN")
+      VALUE_RULES_MANAGEMENT_PAGE_ACTION_DROPDOWN("RULES_MANAGEMENT_PAGE_ACTION_DROPDOWN"),
+      @SerializedName("RULES_MANAGEMENT_PAGE_RULE_GROUP")
+      VALUE_RULES_MANAGEMENT_PAGE_RULE_GROUP("RULES_MANAGEMENT_PAGE_RULE_GROUP"),
+      @SerializedName("RULES_MANAGEMENT_PAGE_RULE_NAME")
+      VALUE_RULES_MANAGEMENT_PAGE_RULE_NAME("RULES_MANAGEMENT_PAGE_RULE_NAME"),
+      @SerializedName("RULES_MANAGEMENT_PAGE_TOP_NAV")
+      VALUE_RULES_MANAGEMENT_PAGE_TOP_NAV("RULES_MANAGEMENT_PAGE_TOP_NAV"),
+      @SerializedName("RULES_VIEW_ACTIVE_RULES_DIALOG")
+      VALUE_RULES_VIEW_ACTIVE_RULES_DIALOG("RULES_VIEW_ACTIVE_RULES_DIALOG"),
+      @SerializedName("RULE_CREATION_SUCCESS_DIALOG")
+      VALUE_RULE_CREATION_SUCCESS_DIALOG("RULE_CREATION_SUCCESS_DIALOG"),
+      @SerializedName("RULE_SYD_REDIRECT")
+      VALUE_RULE_SYD_REDIRECT("RULE_SYD_REDIRECT"),
+      @SerializedName("RULE_TEMPLATES_DIALOG")
+      VALUE_RULE_TEMPLATES_DIALOG("RULE_TEMPLATES_DIALOG"),
+      ;
+
+      private String value;
+
+      private EnumUiCreationSource(String value) {
         this.value = value;
       }
 
@@ -928,8 +1320,8 @@ public class AdRule extends APINode {
 
   public static APIRequest.ResponseParser<AdRule> getParser() {
     return new APIRequest.ResponseParser<AdRule>() {
-      public APINodeList<AdRule> parseResponse(String response, APIContext context, APIRequest<AdRule> request) throws MalformedResponseException {
-        return AdRule.parseResponse(response, context, request);
+      public APINodeList<AdRule> parseResponse(String response, APIContext context, APIRequest<AdRule> request, String header) throws MalformedResponseException {
+        return AdRule.parseResponse(response, context, request, header);
       }
     };
   }

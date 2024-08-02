@@ -1,24 +1,9 @@
-/**
- * Copyright (c) 2015-present, Facebook, Inc. All rights reserved.
+/*
+ * Copyright (c) Meta Platforms, Inc. and affiliates.
+ * All rights reserved.
  *
- * You are hereby granted a non-exclusive, worldwide, royalty-free license to
- * use, copy, modify, and distribute this software in source code or binary
- * form for use in connection with the web services and APIs provided by
- * Facebook.
- *
- * As with any software that integrates with the Facebook platform, your use
- * of this software is subject to the Facebook Developer Principles and
- * Policies [http://developers.facebook.com/policy/]. This copyright notice
- * shall be included in all copies or substantial portions of the software.
- *
- * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
- * IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
- * FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL
- * THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
- * LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING
- * FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
- * DEALINGS IN THE SOFTWARE.
- *
+ * This source code is licensed under the license found in the
+ * LICENSE file in the root directory of this source tree.
  */
 
 package com.facebook.ads.sdk;
@@ -31,6 +16,11 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
+import com.google.common.base.Function;
+import com.google.common.util.concurrent.Futures;
+import com.google.common.util.concurrent.ListenableFuture;
+import com.google.common.util.concurrent.MoreExecutors;
+import com.google.common.util.concurrent.SettableFuture;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonArray;
 import com.google.gson.annotations.SerializedName;
@@ -67,7 +57,7 @@ public class AdRuleTrigger extends APINode {
   public String getId() {
     return null;
   }
-  public static AdRuleTrigger loadJSON(String json, APIContext context) {
+  public static AdRuleTrigger loadJSON(String json, APIContext context, String header) {
     AdRuleTrigger adRuleTrigger = getGson().fromJson(json, AdRuleTrigger.class);
     if (context.isDebug()) {
       JsonParser parser = new JsonParser();
@@ -80,15 +70,16 @@ public class AdRuleTrigger extends APINode {
         context.log("[Warning] When parsing response, object is not consistent with JSON:");
         context.log("[JSON]" + o1);
         context.log("[Object]" + o2);
-      };
+      }
     }
     adRuleTrigger.context = context;
     adRuleTrigger.rawValue = json;
+    adRuleTrigger.header = header;
     return adRuleTrigger;
   }
 
-  public static APINodeList<AdRuleTrigger> parseResponse(String json, APIContext context, APIRequest request) throws MalformedResponseException {
-    APINodeList<AdRuleTrigger> adRuleTriggers = new APINodeList<AdRuleTrigger>(request, json);
+  public static APINodeList<AdRuleTrigger> parseResponse(String json, APIContext context, APIRequest request, String header) throws MalformedResponseException {
+    APINodeList<AdRuleTrigger> adRuleTriggers = new APINodeList<AdRuleTrigger>(request, json, header);
     JsonArray arr;
     JsonObject obj;
     JsonParser parser = new JsonParser();
@@ -99,23 +90,32 @@ public class AdRuleTrigger extends APINode {
         // First, check if it's a pure JSON Array
         arr = result.getAsJsonArray();
         for (int i = 0; i < arr.size(); i++) {
-          adRuleTriggers.add(loadJSON(arr.get(i).getAsJsonObject().toString(), context));
+          adRuleTriggers.add(loadJSON(arr.get(i).getAsJsonObject().toString(), context, header));
         };
         return adRuleTriggers;
       } else if (result.isJsonObject()) {
         obj = result.getAsJsonObject();
         if (obj.has("data")) {
           if (obj.has("paging")) {
-            JsonObject paging = obj.get("paging").getAsJsonObject().get("cursors").getAsJsonObject();
-            String before = paging.has("before") ? paging.get("before").getAsString() : null;
-            String after = paging.has("after") ? paging.get("after").getAsString() : null;
-            adRuleTriggers.setPaging(before, after);
+            JsonObject paging = obj.get("paging").getAsJsonObject();
+            if (paging.has("cursors")) {
+                JsonObject cursors = paging.get("cursors").getAsJsonObject();
+                String before = cursors.has("before") ? cursors.get("before").getAsString() : null;
+                String after = cursors.has("after") ? cursors.get("after").getAsString() : null;
+                adRuleTriggers.setCursors(before, after);
+            }
+            String previous = paging.has("previous") ? paging.get("previous").getAsString() : null;
+            String next = paging.has("next") ? paging.get("next").getAsString() : null;
+            adRuleTriggers.setPaging(previous, next);
+            if (context.hasAppSecret()) {
+              adRuleTriggers.setAppSecret(context.getAppSecretProof());
+            }
           }
           if (obj.get("data").isJsonArray()) {
             // Second, check if it's a JSON array with "data"
             arr = obj.get("data").getAsJsonArray();
             for (int i = 0; i < arr.size(); i++) {
-              adRuleTriggers.add(loadJSON(arr.get(i).getAsJsonObject().toString(), context));
+              adRuleTriggers.add(loadJSON(arr.get(i).getAsJsonObject().toString(), context, header));
             };
           } else if (obj.get("data").isJsonObject()) {
             // Third, check if it's a JSON object with "data"
@@ -126,13 +126,13 @@ public class AdRuleTrigger extends APINode {
                 isRedownload = true;
                 obj = obj.getAsJsonObject(s);
                 for (Map.Entry<String, JsonElement> entry : obj.entrySet()) {
-                  adRuleTriggers.add(loadJSON(entry.getValue().toString(), context));
+                  adRuleTriggers.add(loadJSON(entry.getValue().toString(), context, header));
                 }
                 break;
               }
             }
             if (!isRedownload) {
-              adRuleTriggers.add(loadJSON(obj.toString(), context));
+              adRuleTriggers.add(loadJSON(obj.toString(), context, header));
             }
           }
           return adRuleTriggers;
@@ -140,7 +140,7 @@ public class AdRuleTrigger extends APINode {
           // Fourth, check if it's a map of image objects
           obj = obj.get("images").getAsJsonObject();
           for (Map.Entry<String, JsonElement> entry : obj.entrySet()) {
-              adRuleTriggers.add(loadJSON(entry.getValue().toString(), context));
+              adRuleTriggers.add(loadJSON(entry.getValue().toString(), context, header));
           }
           return adRuleTriggers;
         } else {
@@ -159,7 +159,7 @@ public class AdRuleTrigger extends APINode {
               value.getAsJsonObject().get("id") != null &&
               value.getAsJsonObject().get("id").getAsString().equals(key)
             ) {
-              adRuleTriggers.add(loadJSON(value.toString(), context));
+              adRuleTriggers.add(loadJSON(value.toString(), context, header));
             } else {
               isIdIndexedArray = false;
               break;
@@ -171,7 +171,7 @@ public class AdRuleTrigger extends APINode {
 
           // Sixth, check if it's pure JsonObject
           adRuleTriggers.clear();
-          adRuleTriggers.add(loadJSON(json, context));
+          adRuleTriggers.add(loadJSON(json, context, header));
           return adRuleTriggers;
         }
       }
@@ -239,33 +239,33 @@ public class AdRuleTrigger extends APINode {
 
 
   public static enum EnumOperator {
-      @SerializedName("GREATER_THAN")
-      VALUE_GREATER_THAN("GREATER_THAN"),
-      @SerializedName("LESS_THAN")
-      VALUE_LESS_THAN("LESS_THAN"),
-      @SerializedName("EQUAL")
-      VALUE_EQUAL("EQUAL"),
-      @SerializedName("NOT_EQUAL")
-      VALUE_NOT_EQUAL("NOT_EQUAL"),
-      @SerializedName("IN_RANGE")
-      VALUE_IN_RANGE("IN_RANGE"),
-      @SerializedName("NOT_IN_RANGE")
-      VALUE_NOT_IN_RANGE("NOT_IN_RANGE"),
-      @SerializedName("IN")
-      VALUE_IN("IN"),
-      @SerializedName("NOT_IN")
-      VALUE_NOT_IN("NOT_IN"),
-      @SerializedName("CONTAIN")
-      VALUE_CONTAIN("CONTAIN"),
-      @SerializedName("NOT_CONTAIN")
-      VALUE_NOT_CONTAIN("NOT_CONTAIN"),
-      @SerializedName("ANY")
-      VALUE_ANY("ANY"),
       @SerializedName("ALL")
       VALUE_ALL("ALL"),
+      @SerializedName("ANY")
+      VALUE_ANY("ANY"),
+      @SerializedName("CONTAIN")
+      VALUE_CONTAIN("CONTAIN"),
+      @SerializedName("EQUAL")
+      VALUE_EQUAL("EQUAL"),
+      @SerializedName("GREATER_THAN")
+      VALUE_GREATER_THAN("GREATER_THAN"),
+      @SerializedName("IN")
+      VALUE_IN("IN"),
+      @SerializedName("IN_RANGE")
+      VALUE_IN_RANGE("IN_RANGE"),
+      @SerializedName("LESS_THAN")
+      VALUE_LESS_THAN("LESS_THAN"),
       @SerializedName("NONE")
       VALUE_NONE("NONE"),
-      NULL(null);
+      @SerializedName("NOT_CONTAIN")
+      VALUE_NOT_CONTAIN("NOT_CONTAIN"),
+      @SerializedName("NOT_EQUAL")
+      VALUE_NOT_EQUAL("NOT_EQUAL"),
+      @SerializedName("NOT_IN")
+      VALUE_NOT_IN("NOT_IN"),
+      @SerializedName("NOT_IN_RANGE")
+      VALUE_NOT_IN_RANGE("NOT_IN_RANGE"),
+      ;
 
       private String value;
 
@@ -280,15 +280,17 @@ public class AdRuleTrigger extends APINode {
   }
 
   public static enum EnumType {
+      @SerializedName("DELIVERY_INSIGHTS_CHANGE")
+      VALUE_DELIVERY_INSIGHTS_CHANGE("DELIVERY_INSIGHTS_CHANGE"),
       @SerializedName("METADATA_CREATION")
       VALUE_METADATA_CREATION("METADATA_CREATION"),
       @SerializedName("METADATA_UPDATE")
       VALUE_METADATA_UPDATE("METADATA_UPDATE"),
-      @SerializedName("STATS_MILESTONE")
-      VALUE_STATS_MILESTONE("STATS_MILESTONE"),
       @SerializedName("STATS_CHANGE")
       VALUE_STATS_CHANGE("STATS_CHANGE"),
-      NULL(null);
+      @SerializedName("STATS_MILESTONE")
+      VALUE_STATS_MILESTONE("STATS_MILESTONE"),
+      ;
 
       private String value;
 
@@ -328,8 +330,8 @@ public class AdRuleTrigger extends APINode {
 
   public static APIRequest.ResponseParser<AdRuleTrigger> getParser() {
     return new APIRequest.ResponseParser<AdRuleTrigger>() {
-      public APINodeList<AdRuleTrigger> parseResponse(String response, APIContext context, APIRequest<AdRuleTrigger> request) throws MalformedResponseException {
-        return AdRuleTrigger.parseResponse(response, context, request);
+      public APINodeList<AdRuleTrigger> parseResponse(String response, APIContext context, APIRequest<AdRuleTrigger> request, String header) throws MalformedResponseException {
+        return AdRuleTrigger.parseResponse(response, context, request, header);
       }
     };
   }

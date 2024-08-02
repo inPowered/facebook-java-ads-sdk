@@ -1,24 +1,9 @@
-/**
- * Copyright (c) 2015-present, Facebook, Inc. All rights reserved.
+/*
+ * Copyright (c) Meta Platforms, Inc. and affiliates.
+ * All rights reserved.
  *
- * You are hereby granted a non-exclusive, worldwide, royalty-free license to
- * use, copy, modify, and distribute this software in source code or binary
- * form for use in connection with the web services and APIs provided by
- * Facebook.
- *
- * As with any software that integrates with the Facebook platform, your use
- * of this software is subject to the Facebook Developer Principles and
- * Policies [http://developers.facebook.com/policy/]. This copyright notice
- * shall be included in all copies or substantial portions of the software.
- *
- * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
- * IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
- * FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL
- * THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
- * LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING
- * FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
- * DEALINGS IN THE SOFTWARE.
- *
+ * This source code is licensed under the license found in the
+ * LICENSE file in the root directory of this source tree.
  */
 
 package com.facebook.ads.sdk;
@@ -31,6 +16,11 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
+import com.google.common.base.Function;
+import com.google.common.util.concurrent.Futures;
+import com.google.common.util.concurrent.ListenableFuture;
+import com.google.common.util.concurrent.MoreExecutors;
+import com.google.common.util.concurrent.SettableFuture;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonArray;
 import com.google.gson.annotations.SerializedName;
@@ -55,16 +45,76 @@ public class AdgroupPlacementSpecificReviewFeedback extends APINode {
   private Map<String, String> mAccountAdmin = null;
   @SerializedName("ad")
   private Map<String, String> mAd = null;
+  @SerializedName("ads_conversion_experiences")
+  private Map<String, String> mAdsConversionExperiences = null;
+  @SerializedName("b2c")
+  private Map<String, String> mB2c = null;
+  @SerializedName("b2c_commerce_unified")
+  private Map<String, String> mB2cCommerceUnified = null;
+  @SerializedName("bsg")
+  private Map<String, String> mBsg = null;
+  @SerializedName("city_community")
+  private Map<String, String> mCityCommunity = null;
+  @SerializedName("commerce")
+  private Map<String, String> mCommerce = null;
+  @SerializedName("compromise")
+  private Map<String, String> mCompromise = null;
+  @SerializedName("daily_deals")
+  private Map<String, String> mDailyDeals = null;
+  @SerializedName("daily_deals_legacy")
+  private Map<String, String> mDailyDealsLegacy = null;
+  @SerializedName("dpa")
+  private Map<String, String> mDpa = null;
+  @SerializedName("dri_copyright")
+  private Map<String, String> mDriCopyright = null;
+  @SerializedName("dri_counterfeit")
+  private Map<String, String> mDriCounterfeit = null;
   @SerializedName("facebook")
   private Map<String, String> mFacebook = null;
+  @SerializedName("facebook_pages_live_shopping")
+  private Map<String, String> mFacebookPagesLiveShopping = null;
+  @SerializedName("independent_work")
+  private Map<String, String> mIndependentWork = null;
   @SerializedName("instagram")
   private Map<String, String> mInstagram = null;
+  @SerializedName("instagram_shop")
+  private Map<String, String> mInstagramShop = null;
+  @SerializedName("job_search")
+  private Map<String, String> mJobSearch = null;
+  @SerializedName("lead_gen_honeypot")
+  private Map<String, String> mLeadGenHoneypot = null;
+  @SerializedName("marketplace")
+  private Map<String, String> mMarketplace = null;
+  @SerializedName("marketplace_home_rentals")
+  private Map<String, String> mMarketplaceHomeRentals = null;
+  @SerializedName("marketplace_home_sales")
+  private Map<String, String> mMarketplaceHomeSales = null;
+  @SerializedName("marketplace_motors")
+  private Map<String, String> mMarketplaceMotors = null;
+  @SerializedName("marketplace_shops")
+  private Map<String, String> mMarketplaceShops = null;
+  @SerializedName("max_review_placements")
+  private Map<String, String> mMaxReviewPlacements = null;
+  @SerializedName("neighborhoods")
+  private Map<String, String> mNeighborhoods = null;
   @SerializedName("page_admin")
   private Map<String, String> mPageAdmin = null;
   @SerializedName("product")
   private Map<String, String> mProduct = null;
+  @SerializedName("product_service")
+  private Map<String, String> mProductService = null;
+  @SerializedName("profile")
+  private Map<String, String> mProfile = null;
   @SerializedName("seller")
   private Map<String, String> mSeller = null;
+  @SerializedName("shops")
+  private Map<String, String> mShops = null;
+  @SerializedName("traffic_quality")
+  private Map<String, String> mTrafficQuality = null;
+  @SerializedName("unified_commerce_content")
+  private Map<String, String> mUnifiedCommerceContent = null;
+  @SerializedName("whatsapp")
+  private Map<String, String> mWhatsapp = null;
   protected static Gson gson = null;
 
   public AdgroupPlacementSpecificReviewFeedback() {
@@ -73,7 +123,7 @@ public class AdgroupPlacementSpecificReviewFeedback extends APINode {
   public String getId() {
     return null;
   }
-  public static AdgroupPlacementSpecificReviewFeedback loadJSON(String json, APIContext context) {
+  public static AdgroupPlacementSpecificReviewFeedback loadJSON(String json, APIContext context, String header) {
     AdgroupPlacementSpecificReviewFeedback adgroupPlacementSpecificReviewFeedback = getGson().fromJson(json, AdgroupPlacementSpecificReviewFeedback.class);
     if (context.isDebug()) {
       JsonParser parser = new JsonParser();
@@ -86,15 +136,16 @@ public class AdgroupPlacementSpecificReviewFeedback extends APINode {
         context.log("[Warning] When parsing response, object is not consistent with JSON:");
         context.log("[JSON]" + o1);
         context.log("[Object]" + o2);
-      };
+      }
     }
     adgroupPlacementSpecificReviewFeedback.context = context;
     adgroupPlacementSpecificReviewFeedback.rawValue = json;
+    adgroupPlacementSpecificReviewFeedback.header = header;
     return adgroupPlacementSpecificReviewFeedback;
   }
 
-  public static APINodeList<AdgroupPlacementSpecificReviewFeedback> parseResponse(String json, APIContext context, APIRequest request) throws MalformedResponseException {
-    APINodeList<AdgroupPlacementSpecificReviewFeedback> adgroupPlacementSpecificReviewFeedbacks = new APINodeList<AdgroupPlacementSpecificReviewFeedback>(request, json);
+  public static APINodeList<AdgroupPlacementSpecificReviewFeedback> parseResponse(String json, APIContext context, APIRequest request, String header) throws MalformedResponseException {
+    APINodeList<AdgroupPlacementSpecificReviewFeedback> adgroupPlacementSpecificReviewFeedbacks = new APINodeList<AdgroupPlacementSpecificReviewFeedback>(request, json, header);
     JsonArray arr;
     JsonObject obj;
     JsonParser parser = new JsonParser();
@@ -105,23 +156,32 @@ public class AdgroupPlacementSpecificReviewFeedback extends APINode {
         // First, check if it's a pure JSON Array
         arr = result.getAsJsonArray();
         for (int i = 0; i < arr.size(); i++) {
-          adgroupPlacementSpecificReviewFeedbacks.add(loadJSON(arr.get(i).getAsJsonObject().toString(), context));
+          adgroupPlacementSpecificReviewFeedbacks.add(loadJSON(arr.get(i).getAsJsonObject().toString(), context, header));
         };
         return adgroupPlacementSpecificReviewFeedbacks;
       } else if (result.isJsonObject()) {
         obj = result.getAsJsonObject();
         if (obj.has("data")) {
           if (obj.has("paging")) {
-            JsonObject paging = obj.get("paging").getAsJsonObject().get("cursors").getAsJsonObject();
-            String before = paging.has("before") ? paging.get("before").getAsString() : null;
-            String after = paging.has("after") ? paging.get("after").getAsString() : null;
-            adgroupPlacementSpecificReviewFeedbacks.setPaging(before, after);
+            JsonObject paging = obj.get("paging").getAsJsonObject();
+            if (paging.has("cursors")) {
+                JsonObject cursors = paging.get("cursors").getAsJsonObject();
+                String before = cursors.has("before") ? cursors.get("before").getAsString() : null;
+                String after = cursors.has("after") ? cursors.get("after").getAsString() : null;
+                adgroupPlacementSpecificReviewFeedbacks.setCursors(before, after);
+            }
+            String previous = paging.has("previous") ? paging.get("previous").getAsString() : null;
+            String next = paging.has("next") ? paging.get("next").getAsString() : null;
+            adgroupPlacementSpecificReviewFeedbacks.setPaging(previous, next);
+            if (context.hasAppSecret()) {
+              adgroupPlacementSpecificReviewFeedbacks.setAppSecret(context.getAppSecretProof());
+            }
           }
           if (obj.get("data").isJsonArray()) {
             // Second, check if it's a JSON array with "data"
             arr = obj.get("data").getAsJsonArray();
             for (int i = 0; i < arr.size(); i++) {
-              adgroupPlacementSpecificReviewFeedbacks.add(loadJSON(arr.get(i).getAsJsonObject().toString(), context));
+              adgroupPlacementSpecificReviewFeedbacks.add(loadJSON(arr.get(i).getAsJsonObject().toString(), context, header));
             };
           } else if (obj.get("data").isJsonObject()) {
             // Third, check if it's a JSON object with "data"
@@ -132,13 +192,13 @@ public class AdgroupPlacementSpecificReviewFeedback extends APINode {
                 isRedownload = true;
                 obj = obj.getAsJsonObject(s);
                 for (Map.Entry<String, JsonElement> entry : obj.entrySet()) {
-                  adgroupPlacementSpecificReviewFeedbacks.add(loadJSON(entry.getValue().toString(), context));
+                  adgroupPlacementSpecificReviewFeedbacks.add(loadJSON(entry.getValue().toString(), context, header));
                 }
                 break;
               }
             }
             if (!isRedownload) {
-              adgroupPlacementSpecificReviewFeedbacks.add(loadJSON(obj.toString(), context));
+              adgroupPlacementSpecificReviewFeedbacks.add(loadJSON(obj.toString(), context, header));
             }
           }
           return adgroupPlacementSpecificReviewFeedbacks;
@@ -146,7 +206,7 @@ public class AdgroupPlacementSpecificReviewFeedback extends APINode {
           // Fourth, check if it's a map of image objects
           obj = obj.get("images").getAsJsonObject();
           for (Map.Entry<String, JsonElement> entry : obj.entrySet()) {
-              adgroupPlacementSpecificReviewFeedbacks.add(loadJSON(entry.getValue().toString(), context));
+              adgroupPlacementSpecificReviewFeedbacks.add(loadJSON(entry.getValue().toString(), context, header));
           }
           return adgroupPlacementSpecificReviewFeedbacks;
         } else {
@@ -165,7 +225,7 @@ public class AdgroupPlacementSpecificReviewFeedback extends APINode {
               value.getAsJsonObject().get("id") != null &&
               value.getAsJsonObject().get("id").getAsString().equals(key)
             ) {
-              adgroupPlacementSpecificReviewFeedbacks.add(loadJSON(value.toString(), context));
+              adgroupPlacementSpecificReviewFeedbacks.add(loadJSON(value.toString(), context, header));
             } else {
               isIdIndexedArray = false;
               break;
@@ -177,7 +237,7 @@ public class AdgroupPlacementSpecificReviewFeedback extends APINode {
 
           // Sixth, check if it's pure JsonObject
           adgroupPlacementSpecificReviewFeedbacks.clear();
-          adgroupPlacementSpecificReviewFeedbacks.add(loadJSON(json, context));
+          adgroupPlacementSpecificReviewFeedbacks.add(loadJSON(json, context, header));
           return adgroupPlacementSpecificReviewFeedbacks;
         }
       }
@@ -224,6 +284,114 @@ public class AdgroupPlacementSpecificReviewFeedback extends APINode {
     return this;
   }
 
+  public Map<String, String> getFieldAdsConversionExperiences() {
+    return mAdsConversionExperiences;
+  }
+
+  public AdgroupPlacementSpecificReviewFeedback setFieldAdsConversionExperiences(Map<String, String> value) {
+    this.mAdsConversionExperiences = value;
+    return this;
+  }
+
+  public Map<String, String> getFieldB2c() {
+    return mB2c;
+  }
+
+  public AdgroupPlacementSpecificReviewFeedback setFieldB2c(Map<String, String> value) {
+    this.mB2c = value;
+    return this;
+  }
+
+  public Map<String, String> getFieldB2cCommerceUnified() {
+    return mB2cCommerceUnified;
+  }
+
+  public AdgroupPlacementSpecificReviewFeedback setFieldB2cCommerceUnified(Map<String, String> value) {
+    this.mB2cCommerceUnified = value;
+    return this;
+  }
+
+  public Map<String, String> getFieldBsg() {
+    return mBsg;
+  }
+
+  public AdgroupPlacementSpecificReviewFeedback setFieldBsg(Map<String, String> value) {
+    this.mBsg = value;
+    return this;
+  }
+
+  public Map<String, String> getFieldCityCommunity() {
+    return mCityCommunity;
+  }
+
+  public AdgroupPlacementSpecificReviewFeedback setFieldCityCommunity(Map<String, String> value) {
+    this.mCityCommunity = value;
+    return this;
+  }
+
+  public Map<String, String> getFieldCommerce() {
+    return mCommerce;
+  }
+
+  public AdgroupPlacementSpecificReviewFeedback setFieldCommerce(Map<String, String> value) {
+    this.mCommerce = value;
+    return this;
+  }
+
+  public Map<String, String> getFieldCompromise() {
+    return mCompromise;
+  }
+
+  public AdgroupPlacementSpecificReviewFeedback setFieldCompromise(Map<String, String> value) {
+    this.mCompromise = value;
+    return this;
+  }
+
+  public Map<String, String> getFieldDailyDeals() {
+    return mDailyDeals;
+  }
+
+  public AdgroupPlacementSpecificReviewFeedback setFieldDailyDeals(Map<String, String> value) {
+    this.mDailyDeals = value;
+    return this;
+  }
+
+  public Map<String, String> getFieldDailyDealsLegacy() {
+    return mDailyDealsLegacy;
+  }
+
+  public AdgroupPlacementSpecificReviewFeedback setFieldDailyDealsLegacy(Map<String, String> value) {
+    this.mDailyDealsLegacy = value;
+    return this;
+  }
+
+  public Map<String, String> getFieldDpa() {
+    return mDpa;
+  }
+
+  public AdgroupPlacementSpecificReviewFeedback setFieldDpa(Map<String, String> value) {
+    this.mDpa = value;
+    return this;
+  }
+
+  public Map<String, String> getFieldDriCopyright() {
+    return mDriCopyright;
+  }
+
+  public AdgroupPlacementSpecificReviewFeedback setFieldDriCopyright(Map<String, String> value) {
+    this.mDriCopyright = value;
+    return this;
+  }
+
+  public Map<String, String> getFieldDriCounterfeit() {
+    return mDriCounterfeit;
+  }
+
+  public AdgroupPlacementSpecificReviewFeedback setFieldDriCounterfeit(Map<String, String> value) {
+    this.mDriCounterfeit = value;
+    return this;
+  }
+
   public Map<String, String> getFieldFacebook() {
     return mFacebook;
   }
@@ -233,12 +401,120 @@ public class AdgroupPlacementSpecificReviewFeedback extends APINode {
     return this;
   }
 
+  public Map<String, String> getFieldFacebookPagesLiveShopping() {
+    return mFacebookPagesLiveShopping;
+  }
+
+  public AdgroupPlacementSpecificReviewFeedback setFieldFacebookPagesLiveShopping(Map<String, String> value) {
+    this.mFacebookPagesLiveShopping = value;
+    return this;
+  }
+
+  public Map<String, String> getFieldIndependentWork() {
+    return mIndependentWork;
+  }
+
+  public AdgroupPlacementSpecificReviewFeedback setFieldIndependentWork(Map<String, String> value) {
+    this.mIndependentWork = value;
+    return this;
+  }
+
   public Map<String, String> getFieldInstagram() {
     return mInstagram;
   }
 
   public AdgroupPlacementSpecificReviewFeedback setFieldInstagram(Map<String, String> value) {
     this.mInstagram = value;
+    return this;
+  }
+
+  public Map<String, String> getFieldInstagramShop() {
+    return mInstagramShop;
+  }
+
+  public AdgroupPlacementSpecificReviewFeedback setFieldInstagramShop(Map<String, String> value) {
+    this.mInstagramShop = value;
+    return this;
+  }
+
+  public Map<String, String> getFieldJobSearch() {
+    return mJobSearch;
+  }
+
+  public AdgroupPlacementSpecificReviewFeedback setFieldJobSearch(Map<String, String> value) {
+    this.mJobSearch = value;
+    return this;
+  }
+
+  public Map<String, String> getFieldLeadGenHoneypot() {
+    return mLeadGenHoneypot;
+  }
+
+  public AdgroupPlacementSpecificReviewFeedback setFieldLeadGenHoneypot(Map<String, String> value) {
+    this.mLeadGenHoneypot = value;
+    return this;
+  }
+
+  public Map<String, String> getFieldMarketplace() {
+    return mMarketplace;
+  }
+
+  public AdgroupPlacementSpecificReviewFeedback setFieldMarketplace(Map<String, String> value) {
+    this.mMarketplace = value;
+    return this;
+  }
+
+  public Map<String, String> getFieldMarketplaceHomeRentals() {
+    return mMarketplaceHomeRentals;
+  }
+
+  public AdgroupPlacementSpecificReviewFeedback setFieldMarketplaceHomeRentals(Map<String, String> value) {
+    this.mMarketplaceHomeRentals = value;
+    return this;
+  }
+
+  public Map<String, String> getFieldMarketplaceHomeSales() {
+    return mMarketplaceHomeSales;
+  }
+
+  public AdgroupPlacementSpecificReviewFeedback setFieldMarketplaceHomeSales(Map<String, String> value) {
+    this.mMarketplaceHomeSales = value;
+    return this;
+  }
+
+  public Map<String, String> getFieldMarketplaceMotors() {
+    return mMarketplaceMotors;
+  }
+
+  public AdgroupPlacementSpecificReviewFeedback setFieldMarketplaceMotors(Map<String, String> value) {
+    this.mMarketplaceMotors = value;
+    return this;
+  }
+
+  public Map<String, String> getFieldMarketplaceShops() {
+    return mMarketplaceShops;
+  }
+
+  public AdgroupPlacementSpecificReviewFeedback setFieldMarketplaceShops(Map<String, String> value) {
+    this.mMarketplaceShops = value;
+    return this;
+  }
+
+  public Map<String, String> getFieldMaxReviewPlacements() {
+    return mMaxReviewPlacements;
+  }
+
+  public AdgroupPlacementSpecificReviewFeedback setFieldMaxReviewPlacements(Map<String, String> value) {
+    this.mMaxReviewPlacements = value;
+    return this;
+  }
+
+  public Map<String, String> getFieldNeighborhoods() {
+    return mNeighborhoods;
+  }
+
+  public AdgroupPlacementSpecificReviewFeedback setFieldNeighborhoods(Map<String, String> value) {
+    this.mNeighborhoods = value;
     return this;
   }
 
@@ -260,12 +536,66 @@ public class AdgroupPlacementSpecificReviewFeedback extends APINode {
     return this;
   }
 
+  public Map<String, String> getFieldProductService() {
+    return mProductService;
+  }
+
+  public AdgroupPlacementSpecificReviewFeedback setFieldProductService(Map<String, String> value) {
+    this.mProductService = value;
+    return this;
+  }
+
+  public Map<String, String> getFieldProfile() {
+    return mProfile;
+  }
+
+  public AdgroupPlacementSpecificReviewFeedback setFieldProfile(Map<String, String> value) {
+    this.mProfile = value;
+    return this;
+  }
+
   public Map<String, String> getFieldSeller() {
     return mSeller;
   }
 
   public AdgroupPlacementSpecificReviewFeedback setFieldSeller(Map<String, String> value) {
     this.mSeller = value;
+    return this;
+  }
+
+  public Map<String, String> getFieldShops() {
+    return mShops;
+  }
+
+  public AdgroupPlacementSpecificReviewFeedback setFieldShops(Map<String, String> value) {
+    this.mShops = value;
+    return this;
+  }
+
+  public Map<String, String> getFieldTrafficQuality() {
+    return mTrafficQuality;
+  }
+
+  public AdgroupPlacementSpecificReviewFeedback setFieldTrafficQuality(Map<String, String> value) {
+    this.mTrafficQuality = value;
+    return this;
+  }
+
+  public Map<String, String> getFieldUnifiedCommerceContent() {
+    return mUnifiedCommerceContent;
+  }
+
+  public AdgroupPlacementSpecificReviewFeedback setFieldUnifiedCommerceContent(Map<String, String> value) {
+    this.mUnifiedCommerceContent = value;
+    return this;
+  }
+
+  public Map<String, String> getFieldWhatsapp() {
+    return mWhatsapp;
+  }
+
+  public AdgroupPlacementSpecificReviewFeedback setFieldWhatsapp(Map<String, String> value) {
+    this.mWhatsapp = value;
     return this;
   }
 
@@ -288,11 +618,41 @@ public class AdgroupPlacementSpecificReviewFeedback extends APINode {
   public AdgroupPlacementSpecificReviewFeedback copyFrom(AdgroupPlacementSpecificReviewFeedback instance) {
     this.mAccountAdmin = instance.mAccountAdmin;
     this.mAd = instance.mAd;
+    this.mAdsConversionExperiences = instance.mAdsConversionExperiences;
+    this.mB2c = instance.mB2c;
+    this.mB2cCommerceUnified = instance.mB2cCommerceUnified;
+    this.mBsg = instance.mBsg;
+    this.mCityCommunity = instance.mCityCommunity;
+    this.mCommerce = instance.mCommerce;
+    this.mCompromise = instance.mCompromise;
+    this.mDailyDeals = instance.mDailyDeals;
+    this.mDailyDealsLegacy = instance.mDailyDealsLegacy;
+    this.mDpa = instance.mDpa;
+    this.mDriCopyright = instance.mDriCopyright;
+    this.mDriCounterfeit = instance.mDriCounterfeit;
     this.mFacebook = instance.mFacebook;
+    this.mFacebookPagesLiveShopping = instance.mFacebookPagesLiveShopping;
+    this.mIndependentWork = instance.mIndependentWork;
     this.mInstagram = instance.mInstagram;
+    this.mInstagramShop = instance.mInstagramShop;
+    this.mJobSearch = instance.mJobSearch;
+    this.mLeadGenHoneypot = instance.mLeadGenHoneypot;
+    this.mMarketplace = instance.mMarketplace;
+    this.mMarketplaceHomeRentals = instance.mMarketplaceHomeRentals;
+    this.mMarketplaceHomeSales = instance.mMarketplaceHomeSales;
+    this.mMarketplaceMotors = instance.mMarketplaceMotors;
+    this.mMarketplaceShops = instance.mMarketplaceShops;
+    this.mMaxReviewPlacements = instance.mMaxReviewPlacements;
+    this.mNeighborhoods = instance.mNeighborhoods;
     this.mPageAdmin = instance.mPageAdmin;
     this.mProduct = instance.mProduct;
+    this.mProductService = instance.mProductService;
+    this.mProfile = instance.mProfile;
     this.mSeller = instance.mSeller;
+    this.mShops = instance.mShops;
+    this.mTrafficQuality = instance.mTrafficQuality;
+    this.mUnifiedCommerceContent = instance.mUnifiedCommerceContent;
+    this.mWhatsapp = instance.mWhatsapp;
     this.context = instance.context;
     this.rawValue = instance.rawValue;
     return this;
@@ -300,8 +660,8 @@ public class AdgroupPlacementSpecificReviewFeedback extends APINode {
 
   public static APIRequest.ResponseParser<AdgroupPlacementSpecificReviewFeedback> getParser() {
     return new APIRequest.ResponseParser<AdgroupPlacementSpecificReviewFeedback>() {
-      public APINodeList<AdgroupPlacementSpecificReviewFeedback> parseResponse(String response, APIContext context, APIRequest<AdgroupPlacementSpecificReviewFeedback> request) throws MalformedResponseException {
-        return AdgroupPlacementSpecificReviewFeedback.parseResponse(response, context, request);
+      public APINodeList<AdgroupPlacementSpecificReviewFeedback> parseResponse(String response, APIContext context, APIRequest<AdgroupPlacementSpecificReviewFeedback> request, String header) throws MalformedResponseException {
+        return AdgroupPlacementSpecificReviewFeedback.parseResponse(response, context, request, header);
       }
     };
   }

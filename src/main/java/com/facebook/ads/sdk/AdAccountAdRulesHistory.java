@@ -1,24 +1,9 @@
-/**
- * Copyright (c) 2015-present, Facebook, Inc. All rights reserved.
+/*
+ * Copyright (c) Meta Platforms, Inc. and affiliates.
+ * All rights reserved.
  *
- * You are hereby granted a non-exclusive, worldwide, royalty-free license to
- * use, copy, modify, and distribute this software in source code or binary
- * form for use in connection with the web services and APIs provided by
- * Facebook.
- *
- * As with any software that integrates with the Facebook platform, your use
- * of this software is subject to the Facebook Developer Principles and
- * Policies [http://developers.facebook.com/policy/]. This copyright notice
- * shall be included in all copies or substantial portions of the software.
- *
- * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
- * IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
- * FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL
- * THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
- * LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING
- * FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
- * DEALINGS IN THE SOFTWARE.
- *
+ * This source code is licensed under the license found in the
+ * LICENSE file in the root directory of this source tree.
  */
 
 package com.facebook.ads.sdk;
@@ -31,6 +16,11 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
+import com.google.common.base.Function;
+import com.google.common.util.concurrent.Futures;
+import com.google.common.util.concurrent.ListenableFuture;
+import com.google.common.util.concurrent.MoreExecutors;
+import com.google.common.util.concurrent.SettableFuture;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonArray;
 import com.google.gson.annotations.SerializedName;
@@ -77,7 +67,7 @@ public class AdAccountAdRulesHistory extends APINode {
   public String getId() {
     return null;
   }
-  public static AdAccountAdRulesHistory loadJSON(String json, APIContext context) {
+  public static AdAccountAdRulesHistory loadJSON(String json, APIContext context, String header) {
     AdAccountAdRulesHistory adAccountAdRulesHistory = getGson().fromJson(json, AdAccountAdRulesHistory.class);
     if (context.isDebug()) {
       JsonParser parser = new JsonParser();
@@ -90,15 +80,16 @@ public class AdAccountAdRulesHistory extends APINode {
         context.log("[Warning] When parsing response, object is not consistent with JSON:");
         context.log("[JSON]" + o1);
         context.log("[Object]" + o2);
-      };
+      }
     }
     adAccountAdRulesHistory.context = context;
     adAccountAdRulesHistory.rawValue = json;
+    adAccountAdRulesHistory.header = header;
     return adAccountAdRulesHistory;
   }
 
-  public static APINodeList<AdAccountAdRulesHistory> parseResponse(String json, APIContext context, APIRequest request) throws MalformedResponseException {
-    APINodeList<AdAccountAdRulesHistory> adAccountAdRulesHistorys = new APINodeList<AdAccountAdRulesHistory>(request, json);
+  public static APINodeList<AdAccountAdRulesHistory> parseResponse(String json, APIContext context, APIRequest request, String header) throws MalformedResponseException {
+    APINodeList<AdAccountAdRulesHistory> adAccountAdRulesHistorys = new APINodeList<AdAccountAdRulesHistory>(request, json, header);
     JsonArray arr;
     JsonObject obj;
     JsonParser parser = new JsonParser();
@@ -109,23 +100,32 @@ public class AdAccountAdRulesHistory extends APINode {
         // First, check if it's a pure JSON Array
         arr = result.getAsJsonArray();
         for (int i = 0; i < arr.size(); i++) {
-          adAccountAdRulesHistorys.add(loadJSON(arr.get(i).getAsJsonObject().toString(), context));
+          adAccountAdRulesHistorys.add(loadJSON(arr.get(i).getAsJsonObject().toString(), context, header));
         };
         return adAccountAdRulesHistorys;
       } else if (result.isJsonObject()) {
         obj = result.getAsJsonObject();
         if (obj.has("data")) {
           if (obj.has("paging")) {
-            JsonObject paging = obj.get("paging").getAsJsonObject().get("cursors").getAsJsonObject();
-            String before = paging.has("before") ? paging.get("before").getAsString() : null;
-            String after = paging.has("after") ? paging.get("after").getAsString() : null;
-            adAccountAdRulesHistorys.setPaging(before, after);
+            JsonObject paging = obj.get("paging").getAsJsonObject();
+            if (paging.has("cursors")) {
+                JsonObject cursors = paging.get("cursors").getAsJsonObject();
+                String before = cursors.has("before") ? cursors.get("before").getAsString() : null;
+                String after = cursors.has("after") ? cursors.get("after").getAsString() : null;
+                adAccountAdRulesHistorys.setCursors(before, after);
+            }
+            String previous = paging.has("previous") ? paging.get("previous").getAsString() : null;
+            String next = paging.has("next") ? paging.get("next").getAsString() : null;
+            adAccountAdRulesHistorys.setPaging(previous, next);
+            if (context.hasAppSecret()) {
+              adAccountAdRulesHistorys.setAppSecret(context.getAppSecretProof());
+            }
           }
           if (obj.get("data").isJsonArray()) {
             // Second, check if it's a JSON array with "data"
             arr = obj.get("data").getAsJsonArray();
             for (int i = 0; i < arr.size(); i++) {
-              adAccountAdRulesHistorys.add(loadJSON(arr.get(i).getAsJsonObject().toString(), context));
+              adAccountAdRulesHistorys.add(loadJSON(arr.get(i).getAsJsonObject().toString(), context, header));
             };
           } else if (obj.get("data").isJsonObject()) {
             // Third, check if it's a JSON object with "data"
@@ -136,13 +136,13 @@ public class AdAccountAdRulesHistory extends APINode {
                 isRedownload = true;
                 obj = obj.getAsJsonObject(s);
                 for (Map.Entry<String, JsonElement> entry : obj.entrySet()) {
-                  adAccountAdRulesHistorys.add(loadJSON(entry.getValue().toString(), context));
+                  adAccountAdRulesHistorys.add(loadJSON(entry.getValue().toString(), context, header));
                 }
                 break;
               }
             }
             if (!isRedownload) {
-              adAccountAdRulesHistorys.add(loadJSON(obj.toString(), context));
+              adAccountAdRulesHistorys.add(loadJSON(obj.toString(), context, header));
             }
           }
           return adAccountAdRulesHistorys;
@@ -150,7 +150,7 @@ public class AdAccountAdRulesHistory extends APINode {
           // Fourth, check if it's a map of image objects
           obj = obj.get("images").getAsJsonObject();
           for (Map.Entry<String, JsonElement> entry : obj.entrySet()) {
-              adAccountAdRulesHistorys.add(loadJSON(entry.getValue().toString(), context));
+              adAccountAdRulesHistorys.add(loadJSON(entry.getValue().toString(), context, header));
           }
           return adAccountAdRulesHistorys;
         } else {
@@ -169,7 +169,7 @@ public class AdAccountAdRulesHistory extends APINode {
               value.getAsJsonObject().get("id") != null &&
               value.getAsJsonObject().get("id").getAsString().equals(key)
             ) {
-              adAccountAdRulesHistorys.add(loadJSON(value.toString(), context));
+              adAccountAdRulesHistorys.add(loadJSON(value.toString(), context, header));
             } else {
               isIdIndexedArray = false;
               break;
@@ -181,7 +181,7 @@ public class AdAccountAdRulesHistory extends APINode {
 
           // Sixth, check if it's pure JsonObject
           adAccountAdRulesHistorys.clear();
-          adAccountAdRulesHistorys.add(loadJSON(json, context));
+          adAccountAdRulesHistorys.add(loadJSON(json, context, header));
           return adAccountAdRulesHistorys;
         }
       }
@@ -211,6 +211,9 @@ public class AdAccountAdRulesHistory extends APINode {
 
 
   public AdRuleEvaluationSpec getFieldEvaluationSpec() {
+    if (mEvaluationSpec != null) {
+      mEvaluationSpec.context = getContext();
+    }
     return mEvaluationSpec;
   }
 
@@ -243,6 +246,9 @@ public class AdAccountAdRulesHistory extends APINode {
   }
 
   public AdRuleExecutionSpec getFieldExecutionSpec() {
+    if (mExecutionSpec != null) {
+      mExecutionSpec.context = getContext();
+    }
     return mExecutionSpec;
   }
 
@@ -313,6 +319,78 @@ public class AdAccountAdRulesHistory extends APINode {
 
 
 
+  public static enum EnumAction {
+      @SerializedName("BUDGET_NOT_REDISTRIBUTED")
+      VALUE_BUDGET_NOT_REDISTRIBUTED("BUDGET_NOT_REDISTRIBUTED"),
+      @SerializedName("CHANGED_BID")
+      VALUE_CHANGED_BID("CHANGED_BID"),
+      @SerializedName("CHANGED_BUDGET")
+      VALUE_CHANGED_BUDGET("CHANGED_BUDGET"),
+      @SerializedName("EMAIL")
+      VALUE_EMAIL("EMAIL"),
+      @SerializedName("ENABLE_ADVANTAGE_CAMPAIGN_BUDGET")
+      VALUE_ENABLE_ADVANTAGE_CAMPAIGN_BUDGET("ENABLE_ADVANTAGE_CAMPAIGN_BUDGET"),
+      @SerializedName("ENABLE_ADVANTAGE_PLUS_CREATIVE")
+      VALUE_ENABLE_ADVANTAGE_PLUS_CREATIVE("ENABLE_ADVANTAGE_PLUS_CREATIVE"),
+      @SerializedName("ENABLE_ADVANTAGE_PLUS_PLACEMENTS")
+      VALUE_ENABLE_ADVANTAGE_PLUS_PLACEMENTS("ENABLE_ADVANTAGE_PLUS_PLACEMENTS"),
+      @SerializedName("ENABLE_AUTOFLOW")
+      VALUE_ENABLE_AUTOFLOW("ENABLE_AUTOFLOW"),
+      @SerializedName("ENABLE_GEN_UNCROP")
+      VALUE_ENABLE_GEN_UNCROP("ENABLE_GEN_UNCROP"),
+      @SerializedName("ENABLE_MUSIC")
+      VALUE_ENABLE_MUSIC("ENABLE_MUSIC"),
+      @SerializedName("ENABLE_SEMANTIC_BASED_AUDIENCE_EXPANSION")
+      VALUE_ENABLE_SEMANTIC_BASED_AUDIENCE_EXPANSION("ENABLE_SEMANTIC_BASED_AUDIENCE_EXPANSION"),
+      @SerializedName("ENABLE_SHOPS_ADS")
+      VALUE_ENABLE_SHOPS_ADS("ENABLE_SHOPS_ADS"),
+      @SerializedName("ENDPOINT_PINGED")
+      VALUE_ENDPOINT_PINGED("ENDPOINT_PINGED"),
+      @SerializedName("ERROR")
+      VALUE_ERROR("ERROR"),
+      @SerializedName("FACEBOOK_NOTIFICATION_SENT")
+      VALUE_FACEBOOK_NOTIFICATION_SENT("FACEBOOK_NOTIFICATION_SENT"),
+      @SerializedName("MESSAGE_SENT")
+      VALUE_MESSAGE_SENT("MESSAGE_SENT"),
+      @SerializedName("NOT_CHANGED")
+      VALUE_NOT_CHANGED("NOT_CHANGED"),
+      @SerializedName("PAUSED")
+      VALUE_PAUSED("PAUSED"),
+      @SerializedName("UNPAUSED")
+      VALUE_UNPAUSED("UNPAUSED"),
+      ;
+
+      private String value;
+
+      private EnumAction(String value) {
+        this.value = value;
+      }
+
+      @Override
+      public String toString() {
+        return value;
+      }
+  }
+
+  public static enum EnumEvaluationType {
+      @SerializedName("SCHEDULE")
+      VALUE_SCHEDULE("SCHEDULE"),
+      @SerializedName("TRIGGER")
+      VALUE_TRIGGER("TRIGGER"),
+      ;
+
+      private String value;
+
+      private EnumEvaluationType(String value) {
+        this.value = value;
+      }
+
+      @Override
+      public String toString() {
+        return value;
+      }
+  }
+
 
   synchronized /*package*/ static Gson getGson() {
     if (gson != null) {
@@ -344,8 +422,8 @@ public class AdAccountAdRulesHistory extends APINode {
 
   public static APIRequest.ResponseParser<AdAccountAdRulesHistory> getParser() {
     return new APIRequest.ResponseParser<AdAccountAdRulesHistory>() {
-      public APINodeList<AdAccountAdRulesHistory> parseResponse(String response, APIContext context, APIRequest<AdAccountAdRulesHistory> request) throws MalformedResponseException {
-        return AdAccountAdRulesHistory.parseResponse(response, context, request);
+      public APINodeList<AdAccountAdRulesHistory> parseResponse(String response, APIContext context, APIRequest<AdAccountAdRulesHistory> request, String header) throws MalformedResponseException {
+        return AdAccountAdRulesHistory.parseResponse(response, context, request, header);
       }
     };
   }

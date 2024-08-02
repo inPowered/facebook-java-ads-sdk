@@ -42,11 +42,7 @@ import java.io.IOException;
 import java.io.UnsupportedEncodingException;
 import java.util.Random;
 
-import com.google.gson.Gson;
-import com.google.gson.JsonObject;
-import com.google.gson.JsonArray;
-import com.google.gson.JsonParser;
-import com.google.gson.JsonPrimitive;
+import com.google.gson.*;
 
 public class BatchRequest {
   List<Pair> requests = new ArrayList<Pair>();
@@ -70,12 +66,32 @@ public class BatchRequest {
     return this;
   }
 
+  public BatchRequest addRequest(String name, boolean omitResponseOnSuccess, APIRequest request) {
+    if (request == null) {
+      throw new IllegalArgumentException("Cannot add null into batch request!");
+    }
+    this.requests.add(new Pair(name, omitResponseOnSuccess, request));
+    return this;
+  }
+
   public List<APIResponse> execute() throws APIException {
+    return this.execute(false);
+  }
+
+  public List<APIResponse> execute(boolean isAsync) throws APIException {
     try {
       List<APIResponse> responses = new ArrayList<APIResponse>();
-      String batchResponse = executeInternal();
+      String batchResponse = executeInternal(isAsync);
       context.log(batchResponse);
-      JsonArray jsonArray = new JsonParser().parse(batchResponse).getAsJsonArray();
+      JsonArray jsonArray;
+      JsonElement jsonResp = new JsonParser().parse(batchResponse);
+
+      if (isAsync) {
+        jsonArray = jsonResp.getAsJsonObject().get("async_sessions").getAsJsonArray();
+      } else {
+        jsonArray = jsonResp.getAsJsonArray();
+      }
+
       if (jsonArray.size() != requests.size()) {
         throw new APIException.MalformedResponseException("Batch request size is " + requests.size() + ", but response size is " + jsonArray.size());
       }
@@ -84,17 +100,25 @@ public class BatchRequest {
           responses.add(null);
           continue;
         }
-        JsonObject response = jsonArray.get(i).getAsJsonObject();
-        if (response == null || response.get("body") == null || response.get("body").isJsonNull()) {
-          responses.add(null);
-          continue;
-        }
-        if (response.get("code").getAsInt() == HttpURLConnection.HTTP_OK) {
-          String body = response.get("body").getAsString();
+
+
+        if (isAsync) {
           APIRequest request = requests.get(i).request;
-          responses.add(request.parseResponse(body));
+          String body = jsonArray.get(i).getAsJsonObject().toString();
+          responses.add(request.parseResponse(body, null));
         } else {
-          responses.add(new APIException.FailedRequestException(response.toString()));
+          JsonObject response = jsonArray.get(i).getAsJsonObject();
+          if (response == null || response.get("body") == null || response.get("body").isJsonNull()) {
+            responses.add(null);
+            continue;
+          }
+          if (response.get("code").getAsInt() == HttpURLConnection.HTTP_OK) {
+            String body = response.get("body").getAsString();
+            APIRequest request = requests.get(i).request;
+            responses.add(request.parseResponse(body, null));
+          } else {
+            responses.add(new APIException.FailedRequestException(response.toString()));
+          }
         }
       }
       return responses;
@@ -103,11 +127,11 @@ public class BatchRequest {
     }
   }
 
-  public String executeInternal() throws APIException, IOException {
-
+  public String executeInternal(boolean isAsync) throws APIException, IOException {
     Map<String, Object> params = new LinkedHashMap<String, Object>();
     Map<String, File> files = new HashMap<String, File>();
     JsonArray batch = new JsonArray();
+    String batchParamName = "batch";
     params.put("access_token", context.getAccessToken());
     if (context.hasAppSecret()) {
       params.put("appsecret_proof", context.getAppSecretProof());
@@ -120,6 +144,7 @@ public class BatchRequest {
       batchElement.addProperty("method", info.method);
       batchElement.addProperty("relative_url", info.relativeUrl);
       batchElement.addProperty("name", requestEntry.name);
+      batchElement.addProperty("omit_response_on_success", requestEntry.omitResponseOnSuccess);
 
       if (info.body != null) {
         batchElement.addProperty("body", info.body);
@@ -137,23 +162,35 @@ public class BatchRequest {
 
       batch.add(batchElement);
     }
-    params.put("batch", batch.toString());
+
+    if (isAsync) {
+      batchParamName = "asyncbatch";
+    }
+    params.put(batchParamName, batch.toString());
     params.putAll(files);
-    return APIRequest.getExecutor().sendPost(context.getEndpointBase() + "/", params, context);
+    return APIRequest.getExecutor().sendPost(context.getEndpointBase() + "/", params, context).getBody();
   }
 
   public static class BatchModeRequestInfo {
     public String method;
     public String body;
     public String relativeUrl;
+    public boolean omit_response_on_success;
     public Map<String, File> files;
   }
 
   private static class Pair {
     String name;
+    boolean omitResponseOnSuccess;
     APIRequest request;
     Pair(String name, APIRequest request) {
       this.name = name;
+      this.request = request;
+    }
+
+    Pair(String name, boolean omitResponseOnSuccess, APIRequest request) {
+      this.name = name;
+      this.omitResponseOnSuccess = omitResponseOnSuccess;
       this.request = request;
     }
   }

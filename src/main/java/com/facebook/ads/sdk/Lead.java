@@ -1,24 +1,9 @@
-/**
- * Copyright (c) 2015-present, Facebook, Inc. All rights reserved.
+/*
+ * Copyright (c) Meta Platforms, Inc. and affiliates.
+ * All rights reserved.
  *
- * You are hereby granted a non-exclusive, worldwide, royalty-free license to
- * use, copy, modify, and distribute this software in source code or binary
- * form for use in connection with the web services and APIs provided by
- * Facebook.
- *
- * As with any software that integrates with the Facebook platform, your use
- * of this software is subject to the Facebook Developer Principles and
- * Policies [http://developers.facebook.com/policy/]. This copyright notice
- * shall be included in all copies or substantial portions of the software.
- *
- * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
- * IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
- * FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL
- * THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
- * LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING
- * FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
- * DEALINGS IN THE SOFTWARE.
- *
+ * This source code is licensed under the license found in the
+ * LICENSE file in the root directory of this source tree.
  */
 
 package com.facebook.ads.sdk;
@@ -31,6 +16,11 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
+import com.google.common.base.Function;
+import com.google.common.util.concurrent.Futures;
+import com.google.common.util.concurrent.ListenableFuture;
+import com.google.common.util.concurrent.MoreExecutors;
+import com.google.common.util.concurrent.SettableFuture;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonArray;
 import com.google.gson.annotations.SerializedName;
@@ -71,14 +61,24 @@ public class Lead extends APINode {
   private List<UserLeadGenFieldData> mFieldData = null;
   @SerializedName("form_id")
   private String mFormId = null;
+  @SerializedName("home_listing")
+  private HomeListing mHomeListing = null;
   @SerializedName("id")
   private String mId = null;
   @SerializedName("is_organic")
   private Boolean mIsOrganic = null;
+  @SerializedName("partner_name")
+  private String mPartnerName = null;
+  @SerializedName("platform")
+  private String mPlatform = null;
   @SerializedName("post")
-  private Object mPost = null;
+  private Link mPost = null;
+  @SerializedName("post_submission_check_result")
+  private LeadGenPostSubmissionCheckResult mPostSubmissionCheckResult = null;
   @SerializedName("retailer_item_id")
   private String mRetailerItemId = null;
+  @SerializedName("vehicle")
+  private Vehicle mVehicle = null;
   protected static Gson gson = null;
 
   Lead() {
@@ -90,6 +90,7 @@ public class Lead extends APINode {
 
   public Lead(String id, APIContext context) {
     this.mId = id;
+
     this.context = context;
   }
 
@@ -103,12 +104,22 @@ public class Lead extends APINode {
     return fetchById(id.toString(), context);
   }
 
+  public static ListenableFuture<Lead> fetchByIdAsync(Long id, APIContext context) throws APIException {
+    return fetchByIdAsync(id.toString(), context);
+  }
+
   public static Lead fetchById(String id, APIContext context) throws APIException {
-    Lead lead =
+    return
       new APIRequestGet(id, context)
       .requestAllFields()
       .execute();
-    return lead;
+  }
+
+  public static ListenableFuture<Lead> fetchByIdAsync(String id, APIContext context) throws APIException {
+    return
+      new APIRequestGet(id, context)
+      .requestAllFields()
+      .executeAsync();
   }
 
   public static APINodeList<Lead> fetchByIds(List<String> ids, List<String> fields, APIContext context) throws APIException {
@@ -120,6 +131,14 @@ public class Lead extends APINode {
     );
   }
 
+  public static ListenableFuture<APINodeList<Lead>> fetchByIdsAsync(List<String> ids, List<String> fields, APIContext context) throws APIException {
+    return
+      new APIRequest(context, "", "/", "GET", Lead.getParser())
+        .setParam("ids", APIRequest.joinStringList(ids))
+        .requestFields(fields)
+        .executeAsyncBase();
+  }
+
   private String getPrefixedId() {
     return getId();
   }
@@ -127,7 +146,7 @@ public class Lead extends APINode {
   public String getId() {
     return getFieldId().toString();
   }
-  public static Lead loadJSON(String json, APIContext context) {
+  public static Lead loadJSON(String json, APIContext context, String header) {
     Lead lead = getGson().fromJson(json, Lead.class);
     if (context.isDebug()) {
       JsonParser parser = new JsonParser();
@@ -140,15 +159,16 @@ public class Lead extends APINode {
         context.log("[Warning] When parsing response, object is not consistent with JSON:");
         context.log("[JSON]" + o1);
         context.log("[Object]" + o2);
-      };
+      }
     }
     lead.context = context;
     lead.rawValue = json;
+    lead.header = header;
     return lead;
   }
 
-  public static APINodeList<Lead> parseResponse(String json, APIContext context, APIRequest request) throws MalformedResponseException {
-    APINodeList<Lead> leads = new APINodeList<Lead>(request, json);
+  public static APINodeList<Lead> parseResponse(String json, APIContext context, APIRequest request, String header) throws MalformedResponseException {
+    APINodeList<Lead> leads = new APINodeList<Lead>(request, json, header);
     JsonArray arr;
     JsonObject obj;
     JsonParser parser = new JsonParser();
@@ -159,23 +179,32 @@ public class Lead extends APINode {
         // First, check if it's a pure JSON Array
         arr = result.getAsJsonArray();
         for (int i = 0; i < arr.size(); i++) {
-          leads.add(loadJSON(arr.get(i).getAsJsonObject().toString(), context));
+          leads.add(loadJSON(arr.get(i).getAsJsonObject().toString(), context, header));
         };
         return leads;
       } else if (result.isJsonObject()) {
         obj = result.getAsJsonObject();
         if (obj.has("data")) {
           if (obj.has("paging")) {
-            JsonObject paging = obj.get("paging").getAsJsonObject().get("cursors").getAsJsonObject();
-            String before = paging.has("before") ? paging.get("before").getAsString() : null;
-            String after = paging.has("after") ? paging.get("after").getAsString() : null;
-            leads.setPaging(before, after);
+            JsonObject paging = obj.get("paging").getAsJsonObject();
+            if (paging.has("cursors")) {
+                JsonObject cursors = paging.get("cursors").getAsJsonObject();
+                String before = cursors.has("before") ? cursors.get("before").getAsString() : null;
+                String after = cursors.has("after") ? cursors.get("after").getAsString() : null;
+                leads.setCursors(before, after);
+            }
+            String previous = paging.has("previous") ? paging.get("previous").getAsString() : null;
+            String next = paging.has("next") ? paging.get("next").getAsString() : null;
+            leads.setPaging(previous, next);
+            if (context.hasAppSecret()) {
+              leads.setAppSecret(context.getAppSecretProof());
+            }
           }
           if (obj.get("data").isJsonArray()) {
             // Second, check if it's a JSON array with "data"
             arr = obj.get("data").getAsJsonArray();
             for (int i = 0; i < arr.size(); i++) {
-              leads.add(loadJSON(arr.get(i).getAsJsonObject().toString(), context));
+              leads.add(loadJSON(arr.get(i).getAsJsonObject().toString(), context, header));
             };
           } else if (obj.get("data").isJsonObject()) {
             // Third, check if it's a JSON object with "data"
@@ -186,13 +215,13 @@ public class Lead extends APINode {
                 isRedownload = true;
                 obj = obj.getAsJsonObject(s);
                 for (Map.Entry<String, JsonElement> entry : obj.entrySet()) {
-                  leads.add(loadJSON(entry.getValue().toString(), context));
+                  leads.add(loadJSON(entry.getValue().toString(), context, header));
                 }
                 break;
               }
             }
             if (!isRedownload) {
-              leads.add(loadJSON(obj.toString(), context));
+              leads.add(loadJSON(obj.toString(), context, header));
             }
           }
           return leads;
@@ -200,7 +229,7 @@ public class Lead extends APINode {
           // Fourth, check if it's a map of image objects
           obj = obj.get("images").getAsJsonObject();
           for (Map.Entry<String, JsonElement> entry : obj.entrySet()) {
-              leads.add(loadJSON(entry.getValue().toString(), context));
+              leads.add(loadJSON(entry.getValue().toString(), context, header));
           }
           return leads;
         } else {
@@ -219,7 +248,7 @@ public class Lead extends APINode {
               value.getAsJsonObject().get("id") != null &&
               value.getAsJsonObject().get("id").getAsString().equals(key)
             ) {
-              leads.add(loadJSON(value.toString(), context));
+              leads.add(loadJSON(value.toString(), context, header));
             } else {
               isIdIndexedArray = false;
               break;
@@ -231,7 +260,7 @@ public class Lead extends APINode {
 
           // Sixth, check if it's pure JsonObject
           leads.clear();
-          leads.add(loadJSON(json, context));
+          leads.add(loadJSON(json, context, header));
           return leads;
         }
       }
@@ -308,6 +337,13 @@ public class Lead extends APINode {
     return mFormId;
   }
 
+  public HomeListing getFieldHomeListing() {
+    if (mHomeListing != null) {
+      mHomeListing.context = getContext();
+    }
+    return mHomeListing;
+  }
+
   public String getFieldId() {
     return mId;
   }
@@ -316,12 +352,34 @@ public class Lead extends APINode {
     return mIsOrganic;
   }
 
-  public Object getFieldPost() {
+  public String getFieldPartnerName() {
+    return mPartnerName;
+  }
+
+  public String getFieldPlatform() {
+    return mPlatform;
+  }
+
+  public Link getFieldPost() {
+    if (mPost != null) {
+      mPost.context = getContext();
+    }
     return mPost;
+  }
+
+  public LeadGenPostSubmissionCheckResult getFieldPostSubmissionCheckResult() {
+    return mPostSubmissionCheckResult;
   }
 
   public String getFieldRetailerItemId() {
     return mRetailerItemId;
+  }
+
+  public Vehicle getFieldVehicle() {
+    if (mVehicle != null) {
+      mVehicle.context = getContext();
+    }
+    return mVehicle;
   }
 
 
@@ -340,8 +398,8 @@ public class Lead extends APINode {
     };
 
     @Override
-    public APINode parseResponse(String response) throws APIException {
-      return APINode.parseResponse(response, getContext(), this).head();
+    public APINode parseResponse(String response, String header) throws APIException {
+      return APINode.parseResponse(response, getContext(), this, header).head();
     }
 
     @Override
@@ -351,9 +409,30 @@ public class Lead extends APINode {
 
     @Override
     public APINode execute(Map<String, Object> extraParams) throws APIException {
-      lastResponse = parseResponse(executeInternal(extraParams));
+      ResponseWrapper rw = executeInternal(extraParams);
+      lastResponse = parseResponse(rw.getBody(), rw.getHeader());
       return lastResponse;
     }
+
+    public ListenableFuture<APINode> executeAsync() throws APIException {
+      return executeAsync(new HashMap<String, Object>());
+    };
+
+    public ListenableFuture<APINode> executeAsync(Map<String, Object> extraParams) throws APIException {
+      return Futures.transform(
+        executeAsyncInternal(extraParams),
+        new Function<ResponseWrapper, APINode>() {
+           public APINode apply(ResponseWrapper result) {
+             try {
+               return APIRequestDelete.this.parseResponse(result.getBody(), result.getHeader());
+             } catch (Exception e) {
+               throw new RuntimeException(e);
+             }
+           }
+         },
+         MoreExecutors.directExecutor()
+      );
+    };
 
     public APIRequestDelete(String nodeId, APIContext context) {
       super(context, nodeId, "/", "DELETE", Arrays.asList(PARAMS));
@@ -431,15 +510,20 @@ public class Lead extends APINode {
       "custom_disclaimer_responses",
       "field_data",
       "form_id",
+      "home_listing",
       "id",
       "is_organic",
+      "partner_name",
+      "platform",
       "post",
+      "post_submission_check_result",
       "retailer_item_id",
+      "vehicle",
     };
 
     @Override
-    public Lead parseResponse(String response) throws APIException {
-      return Lead.parseResponse(response, getContext(), this).head();
+    public Lead parseResponse(String response, String header) throws APIException {
+      return Lead.parseResponse(response, getContext(), this, header).head();
     }
 
     @Override
@@ -449,9 +533,30 @@ public class Lead extends APINode {
 
     @Override
     public Lead execute(Map<String, Object> extraParams) throws APIException {
-      lastResponse = parseResponse(executeInternal(extraParams));
+      ResponseWrapper rw = executeInternal(extraParams);
+      lastResponse = parseResponse(rw.getBody(), rw.getHeader());
       return lastResponse;
     }
+
+    public ListenableFuture<Lead> executeAsync() throws APIException {
+      return executeAsync(new HashMap<String, Object>());
+    };
+
+    public ListenableFuture<Lead> executeAsync(Map<String, Object> extraParams) throws APIException {
+      return Futures.transform(
+        executeAsyncInternal(extraParams),
+        new Function<ResponseWrapper, Lead>() {
+           public Lead apply(ResponseWrapper result) {
+             try {
+               return APIRequestGet.this.parseResponse(result.getBody(), result.getHeader());
+             } catch (Exception e) {
+               throw new RuntimeException(e);
+             }
+           }
+         },
+         MoreExecutors.directExecutor()
+      );
+    };
 
     public APIRequestGet(String nodeId, APIContext context) {
       super(context, nodeId, "/", "GET", Arrays.asList(PARAMS));
@@ -576,6 +681,13 @@ public class Lead extends APINode {
       this.requestField("form_id", value);
       return this;
     }
+    public APIRequestGet requestHomeListingField () {
+      return this.requestHomeListingField(true);
+    }
+    public APIRequestGet requestHomeListingField (boolean value) {
+      this.requestField("home_listing", value);
+      return this;
+    }
     public APIRequestGet requestIdField () {
       return this.requestIdField(true);
     }
@@ -590,6 +702,20 @@ public class Lead extends APINode {
       this.requestField("is_organic", value);
       return this;
     }
+    public APIRequestGet requestPartnerNameField () {
+      return this.requestPartnerNameField(true);
+    }
+    public APIRequestGet requestPartnerNameField (boolean value) {
+      this.requestField("partner_name", value);
+      return this;
+    }
+    public APIRequestGet requestPlatformField () {
+      return this.requestPlatformField(true);
+    }
+    public APIRequestGet requestPlatformField (boolean value) {
+      this.requestField("platform", value);
+      return this;
+    }
     public APIRequestGet requestPostField () {
       return this.requestPostField(true);
     }
@@ -597,11 +723,25 @@ public class Lead extends APINode {
       this.requestField("post", value);
       return this;
     }
+    public APIRequestGet requestPostSubmissionCheckResultField () {
+      return this.requestPostSubmissionCheckResultField(true);
+    }
+    public APIRequestGet requestPostSubmissionCheckResultField (boolean value) {
+      this.requestField("post_submission_check_result", value);
+      return this;
+    }
     public APIRequestGet requestRetailerItemIdField () {
       return this.requestRetailerItemIdField(true);
     }
     public APIRequestGet requestRetailerItemIdField (boolean value) {
       this.requestField("retailer_item_id", value);
+      return this;
+    }
+    public APIRequestGet requestVehicleField () {
+      return this.requestVehicleField(true);
+    }
+    public APIRequestGet requestVehicleField (boolean value) {
+      this.requestField("vehicle", value);
       return this;
     }
   }
@@ -631,10 +771,15 @@ public class Lead extends APINode {
     this.mCustomDisclaimerResponses = instance.mCustomDisclaimerResponses;
     this.mFieldData = instance.mFieldData;
     this.mFormId = instance.mFormId;
+    this.mHomeListing = instance.mHomeListing;
     this.mId = instance.mId;
     this.mIsOrganic = instance.mIsOrganic;
+    this.mPartnerName = instance.mPartnerName;
+    this.mPlatform = instance.mPlatform;
     this.mPost = instance.mPost;
+    this.mPostSubmissionCheckResult = instance.mPostSubmissionCheckResult;
     this.mRetailerItemId = instance.mRetailerItemId;
+    this.mVehicle = instance.mVehicle;
     this.context = instance.context;
     this.rawValue = instance.rawValue;
     return this;
@@ -642,8 +787,8 @@ public class Lead extends APINode {
 
   public static APIRequest.ResponseParser<Lead> getParser() {
     return new APIRequest.ResponseParser<Lead>() {
-      public APINodeList<Lead> parseResponse(String response, APIContext context, APIRequest<Lead> request) throws MalformedResponseException {
-        return Lead.parseResponse(response, context, request);
+      public APINodeList<Lead> parseResponse(String response, APIContext context, APIRequest<Lead> request, String header) throws MalformedResponseException {
+        return Lead.parseResponse(response, context, request, header);
       }
     };
   }

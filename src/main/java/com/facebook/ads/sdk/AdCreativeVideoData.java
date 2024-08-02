@@ -1,24 +1,9 @@
-/**
- * Copyright (c) 2015-present, Facebook, Inc. All rights reserved.
+/*
+ * Copyright (c) Meta Platforms, Inc. and affiliates.
+ * All rights reserved.
  *
- * You are hereby granted a non-exclusive, worldwide, royalty-free license to
- * use, copy, modify, and distribute this software in source code or binary
- * form for use in connection with the web services and APIs provided by
- * Facebook.
- *
- * As with any software that integrates with the Facebook platform, your use
- * of this software is subject to the Facebook Developer Principles and
- * Policies [http://developers.facebook.com/policy/]. This copyright notice
- * shall be included in all copies or substantial portions of the software.
- *
- * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
- * IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
- * FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL
- * THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
- * LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING
- * FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
- * DEALINGS IN THE SOFTWARE.
- *
+ * This source code is licensed under the license found in the
+ * LICENSE file in the root directory of this source tree.
  */
 
 package com.facebook.ads.sdk;
@@ -31,6 +16,11 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
+import com.google.common.base.Function;
+import com.google.common.util.concurrent.Futures;
+import com.google.common.util.concurrent.ListenableFuture;
+import com.google.common.util.concurrent.MoreExecutors;
+import com.google.common.util.concurrent.SettableFuture;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonArray;
 import com.google.gson.annotations.SerializedName;
@@ -57,12 +47,12 @@ public class AdCreativeVideoData extends APINode {
   private String mBrandedContentSharedToSponsorStatus = null;
   @SerializedName("branded_content_sponsor_page_id")
   private String mBrandedContentSponsorPageId = null;
-  @SerializedName("branded_content_sponsor_relationship")
-  private String mBrandedContentSponsorRelationship = null;
   @SerializedName("call_to_action")
   private AdCreativeLinkDataCallToAction mCallToAction = null;
   @SerializedName("collection_thumbnails")
   private List<AdCreativeCollectionThumbnailInfo> mCollectionThumbnails = null;
+  @SerializedName("customization_rules_spec")
+  private List<AdCustomizationRuleSpec> mCustomizationRulesSpec = null;
   @SerializedName("image_hash")
   private String mImageHash = null;
   @SerializedName("image_url")
@@ -93,7 +83,7 @@ public class AdCreativeVideoData extends APINode {
   public String getId() {
     return null;
   }
-  public static AdCreativeVideoData loadJSON(String json, APIContext context) {
+  public static AdCreativeVideoData loadJSON(String json, APIContext context, String header) {
     AdCreativeVideoData adCreativeVideoData = getGson().fromJson(json, AdCreativeVideoData.class);
     if (context.isDebug()) {
       JsonParser parser = new JsonParser();
@@ -106,15 +96,16 @@ public class AdCreativeVideoData extends APINode {
         context.log("[Warning] When parsing response, object is not consistent with JSON:");
         context.log("[JSON]" + o1);
         context.log("[Object]" + o2);
-      };
+      }
     }
     adCreativeVideoData.context = context;
     adCreativeVideoData.rawValue = json;
+    adCreativeVideoData.header = header;
     return adCreativeVideoData;
   }
 
-  public static APINodeList<AdCreativeVideoData> parseResponse(String json, APIContext context, APIRequest request) throws MalformedResponseException {
-    APINodeList<AdCreativeVideoData> adCreativeVideoDatas = new APINodeList<AdCreativeVideoData>(request, json);
+  public static APINodeList<AdCreativeVideoData> parseResponse(String json, APIContext context, APIRequest request, String header) throws MalformedResponseException {
+    APINodeList<AdCreativeVideoData> adCreativeVideoDatas = new APINodeList<AdCreativeVideoData>(request, json, header);
     JsonArray arr;
     JsonObject obj;
     JsonParser parser = new JsonParser();
@@ -125,23 +116,32 @@ public class AdCreativeVideoData extends APINode {
         // First, check if it's a pure JSON Array
         arr = result.getAsJsonArray();
         for (int i = 0; i < arr.size(); i++) {
-          adCreativeVideoDatas.add(loadJSON(arr.get(i).getAsJsonObject().toString(), context));
+          adCreativeVideoDatas.add(loadJSON(arr.get(i).getAsJsonObject().toString(), context, header));
         };
         return adCreativeVideoDatas;
       } else if (result.isJsonObject()) {
         obj = result.getAsJsonObject();
         if (obj.has("data")) {
           if (obj.has("paging")) {
-            JsonObject paging = obj.get("paging").getAsJsonObject().get("cursors").getAsJsonObject();
-            String before = paging.has("before") ? paging.get("before").getAsString() : null;
-            String after = paging.has("after") ? paging.get("after").getAsString() : null;
-            adCreativeVideoDatas.setPaging(before, after);
+            JsonObject paging = obj.get("paging").getAsJsonObject();
+            if (paging.has("cursors")) {
+                JsonObject cursors = paging.get("cursors").getAsJsonObject();
+                String before = cursors.has("before") ? cursors.get("before").getAsString() : null;
+                String after = cursors.has("after") ? cursors.get("after").getAsString() : null;
+                adCreativeVideoDatas.setCursors(before, after);
+            }
+            String previous = paging.has("previous") ? paging.get("previous").getAsString() : null;
+            String next = paging.has("next") ? paging.get("next").getAsString() : null;
+            adCreativeVideoDatas.setPaging(previous, next);
+            if (context.hasAppSecret()) {
+              adCreativeVideoDatas.setAppSecret(context.getAppSecretProof());
+            }
           }
           if (obj.get("data").isJsonArray()) {
             // Second, check if it's a JSON array with "data"
             arr = obj.get("data").getAsJsonArray();
             for (int i = 0; i < arr.size(); i++) {
-              adCreativeVideoDatas.add(loadJSON(arr.get(i).getAsJsonObject().toString(), context));
+              adCreativeVideoDatas.add(loadJSON(arr.get(i).getAsJsonObject().toString(), context, header));
             };
           } else if (obj.get("data").isJsonObject()) {
             // Third, check if it's a JSON object with "data"
@@ -152,13 +152,13 @@ public class AdCreativeVideoData extends APINode {
                 isRedownload = true;
                 obj = obj.getAsJsonObject(s);
                 for (Map.Entry<String, JsonElement> entry : obj.entrySet()) {
-                  adCreativeVideoDatas.add(loadJSON(entry.getValue().toString(), context));
+                  adCreativeVideoDatas.add(loadJSON(entry.getValue().toString(), context, header));
                 }
                 break;
               }
             }
             if (!isRedownload) {
-              adCreativeVideoDatas.add(loadJSON(obj.toString(), context));
+              adCreativeVideoDatas.add(loadJSON(obj.toString(), context, header));
             }
           }
           return adCreativeVideoDatas;
@@ -166,7 +166,7 @@ public class AdCreativeVideoData extends APINode {
           // Fourth, check if it's a map of image objects
           obj = obj.get("images").getAsJsonObject();
           for (Map.Entry<String, JsonElement> entry : obj.entrySet()) {
-              adCreativeVideoDatas.add(loadJSON(entry.getValue().toString(), context));
+              adCreativeVideoDatas.add(loadJSON(entry.getValue().toString(), context, header));
           }
           return adCreativeVideoDatas;
         } else {
@@ -185,7 +185,7 @@ public class AdCreativeVideoData extends APINode {
               value.getAsJsonObject().get("id") != null &&
               value.getAsJsonObject().get("id").getAsString().equals(key)
             ) {
-              adCreativeVideoDatas.add(loadJSON(value.toString(), context));
+              adCreativeVideoDatas.add(loadJSON(value.toString(), context, header));
             } else {
               isIdIndexedArray = false;
               break;
@@ -197,7 +197,7 @@ public class AdCreativeVideoData extends APINode {
 
           // Sixth, check if it's pure JsonObject
           adCreativeVideoDatas.clear();
-          adCreativeVideoDatas.add(loadJSON(json, context));
+          adCreativeVideoDatas.add(loadJSON(json, context, header));
           return adCreativeVideoDatas;
         }
       }
@@ -253,15 +253,6 @@ public class AdCreativeVideoData extends APINode {
     return this;
   }
 
-  public String getFieldBrandedContentSponsorRelationship() {
-    return mBrandedContentSponsorRelationship;
-  }
-
-  public AdCreativeVideoData setFieldBrandedContentSponsorRelationship(String value) {
-    this.mBrandedContentSponsorRelationship = value;
-    return this;
-  }
-
   public AdCreativeLinkDataCallToAction getFieldCallToAction() {
     return mCallToAction;
   }
@@ -288,6 +279,20 @@ public class AdCreativeVideoData extends APINode {
   public AdCreativeVideoData setFieldCollectionThumbnails(String value) {
     Type type = new TypeToken<List<AdCreativeCollectionThumbnailInfo>>(){}.getType();
     this.mCollectionThumbnails = AdCreativeCollectionThumbnailInfo.getGson().fromJson(value, type);
+    return this;
+  }
+  public List<AdCustomizationRuleSpec> getFieldCustomizationRulesSpec() {
+    return mCustomizationRulesSpec;
+  }
+
+  public AdCreativeVideoData setFieldCustomizationRulesSpec(List<AdCustomizationRuleSpec> value) {
+    this.mCustomizationRulesSpec = value;
+    return this;
+  }
+
+  public AdCreativeVideoData setFieldCustomizationRulesSpec(String value) {
+    Type type = new TypeToken<List<AdCustomizationRuleSpec>>(){}.getType();
+    this.mCustomizationRulesSpec = AdCustomizationRuleSpec.getGson().fromJson(value, type);
     return this;
   }
   public String getFieldImageHash() {
@@ -419,9 +424,9 @@ public class AdCreativeVideoData extends APINode {
     this.mAdditionalImageIndex = instance.mAdditionalImageIndex;
     this.mBrandedContentSharedToSponsorStatus = instance.mBrandedContentSharedToSponsorStatus;
     this.mBrandedContentSponsorPageId = instance.mBrandedContentSponsorPageId;
-    this.mBrandedContentSponsorRelationship = instance.mBrandedContentSponsorRelationship;
     this.mCallToAction = instance.mCallToAction;
     this.mCollectionThumbnails = instance.mCollectionThumbnails;
+    this.mCustomizationRulesSpec = instance.mCustomizationRulesSpec;
     this.mImageHash = instance.mImageHash;
     this.mImageUrl = instance.mImageUrl;
     this.mLinkDescription = instance.mLinkDescription;
@@ -440,8 +445,8 @@ public class AdCreativeVideoData extends APINode {
 
   public static APIRequest.ResponseParser<AdCreativeVideoData> getParser() {
     return new APIRequest.ResponseParser<AdCreativeVideoData>() {
-      public APINodeList<AdCreativeVideoData> parseResponse(String response, APIContext context, APIRequest<AdCreativeVideoData> request) throws MalformedResponseException {
-        return AdCreativeVideoData.parseResponse(response, context, request);
+      public APINodeList<AdCreativeVideoData> parseResponse(String response, APIContext context, APIRequest<AdCreativeVideoData> request, String header) throws MalformedResponseException {
+        return AdCreativeVideoData.parseResponse(response, context, request, header);
       }
     };
   }
